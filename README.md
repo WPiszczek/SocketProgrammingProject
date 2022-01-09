@@ -1,6 +1,6 @@
 # Projekt z Sieci Komputerowych 2
 ---
------------ Wisielec przez sieć ----------------
+## Wisielec przez sieć
 
 Gracz łączy się do serwera i wysyła swój nick (jeśli nick jest już zajęty,
 serwer prosi o podanie innego nicku).
