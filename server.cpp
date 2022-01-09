@@ -1,3 +1,8 @@
+/* 
+Guide to network programming: https://beej.us/guide/bgnet/html/
+*/
+
+
 #include <iostream>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -15,8 +20,9 @@
 #include <algorithm>
 #include "error.h"
 
+
 #define PORT 8080
-#define MAX_CLIENTS 2
+#define MAX_CLIENTS 2 // to be changed to an arbitrary number
 
 std::vector<std::string> usernames;
 // std::unordered_map<int, User> users;
@@ -63,25 +69,28 @@ bool check_username(std::string name){
 constexpr const int one = 1;
 
 int main(int argc, char ** argv){
-    if(argc!=2)
-        error(1,0,"Usage: %s <port>", argv[0]);
-    
-    sockaddr_in localAddress{
+    printf("Starting server...\n");
+    sockaddr_in serverAddress{
         .sin_family = AF_INET,
-        .sin_port   = htons(atoi(argv[1])),
+        .sin_port   = htons(PORT),
         .sin_addr   = {htonl(INADDR_ANY)}
     };
-    
-    int servSock = socket(PF_INET, SOCK_STREAM, 0);
-    setsockopt(servSock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-    
-    if(bind(servSock, (sockaddr*) &localAddress, sizeof(localAddress)))
+
+    int serverSock;
+    if(serverSock = socket(AF_INET, SOCK_STREAM, 0) < 0)
+        error(1, errno, "Creating socket failed!");
+
+    setsockopt(serverSock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+
+    if(bind(serverSock, (sockaddr*) &serverAddress, sizeof(serverAddress)) < 0)
         error(1,errno,"Bind failed!");
     
-    listen(servSock, 1);
+
+    if(listen(serverSock, 1) < 0)
+        error(1,errno,"Listen failed!");
 
     while(true) {
-        accept(servSock, nullptr, nullptr);
+        accept(serverSock, nullptr, nullptr);
         printf("Accepted a new connection, ignoring it.\n");
     }
 }
