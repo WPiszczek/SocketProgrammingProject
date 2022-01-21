@@ -24,6 +24,7 @@ Po odgadnięciu całego hasła lub minięciu określonego czasu następny gracz 
 Gra toczy się do momentu, gdy miną wszystkie rundy lub gdy zostanie mniej niż dwóch graczy. Po zakończeniu gry gracze widzą ranking z punktami, włączając graczy, który rozłączyli się z gry.
 
 Gracze cały czas widzą wisielce swoje i innych graczy, a także bieżącą punktację.
+
 ---
 Informatyka, semestr V
 Dawid Plaskowski
