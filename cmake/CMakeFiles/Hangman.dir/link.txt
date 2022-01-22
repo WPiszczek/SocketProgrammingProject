@@ -1,0 +1,1 @@
+/usr/bin/c++     CMakeFiles/Hangman.dir/Client.cpp.o CMakeFiles/Hangman.dir/globals.cpp.o CMakeFiles/Hangman.dir/server.cpp.o  -o ../bin/Hangman 

@@ -1,3 +1,0 @@
-/home/atman/sk2/projekt/SocketProgrammingProject/CMakeFiles/rebuild_cache.dir
-/home/atman/sk2/projekt/SocketProgrammingProject/CMakeFiles/edit_cache.dir
-/home/atman/sk2/projekt/SocketProgrammingProject/CMakeFiles/Hangman.dir

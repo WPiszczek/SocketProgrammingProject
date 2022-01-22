@@ -1,1 +1,0 @@
-/usr/bin/c++     CMakeFiles/Hangman.dir/server.cpp.o  -o Hangman 

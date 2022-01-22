@@ -1,0 +1,3 @@
+/home/user/Desktop/SocketProgrammingProject/cmake/CMakeFiles/rebuild_cache.dir
+/home/user/Desktop/SocketProgrammingProject/cmake/CMakeFiles/edit_cache.dir
+/home/user/Desktop/SocketProgrammingProject/cmake/CMakeFiles/Hangman.dir
