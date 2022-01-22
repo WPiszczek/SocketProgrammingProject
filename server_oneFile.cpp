@@ -11,16 +11,18 @@
 #include <unordered_set>
 #include <signal.h>
 #include <iostream>
+#include <algorithm>
+#include <vector>
 #include <cstring>
 
-#include "Handler.h"
-#include "Client.h"
-
 using namespace std;
+
+class Client;
 
 int servFd;
 int epollFd;
 
+std::vector<string> usernames;
 std::unordered_set<Client*> clients;
 
 void ctrl_c(int);
@@ -31,6 +33,86 @@ uint16_t readPort(char * txt);
 
 void setReuseAddr(int sock);
 
+bool check_username(std::string name);
+
+
+struct Handler {
+    virtual ~Handler(){}
+    virtual void handleEvent(uint32_t events) = 0;
+};
+
+class Client : public Handler {
+    int _fd;
+    std::string username;
+    int remaining_lives = 2;
+    int gamestate = 0;
+public:
+    Client(int fd) : _fd(fd) {
+        string msg("Podaj nazwe uzytkownika: ");
+        write(msg.c_str(), msg.length());
+        epoll_event ee {EPOLLIN|EPOLLRDHUP, {.ptr=this}};
+        epoll_ctl(epollFd, EPOLL_CTL_ADD, _fd, &ee);
+    }
+    virtual ~Client(){
+        epoll_ctl(epollFd, EPOLL_CTL_DEL, _fd, nullptr);
+        shutdown(_fd, SHUT_RDWR);
+        close(_fd);
+    }
+    int fd() const {return _fd;}
+
+    virtual void handleEvent(uint32_t events) override {
+        if(events & EPOLLIN) {
+            char buf[256];
+            ssize_t count = read(_fd, buf, 256);
+            if(count > 0){
+
+                string buffer = string(buf).substr(0, count);
+                if(gamestate == 0){ // stan podania nazwy uzytkownika
+                    if (!check_username(buffer)){ 
+                        username = buffer;
+                        cout << username << username.size() << endl;
+                        cout << username.length() << endl;
+                        gamestate++;
+                        cout << gamestate << endl;
+                    }
+
+                    else{
+                        std::string msg("Podano istniejaca nazwe uzytkownika\nPodaj inna nazwe uzytkownika: ");
+                        write(msg.c_str(), msg.length());
+                    }
+
+                    }   
+
+                if(gamestate == 1){ // lobby - create a room or join one
+                    std::string msg("Gamestate 1\n");
+                    write(msg.c_str(), msg.length());
+                    std::vector<Client*> v;
+                    v.push_back(this);
+                    // rooms.emplace(std::pair<std::string,vector<Client*>>(std::string("testroom"), v));
+                    // rooms.emplace(std::pair<std::string,vector<Client*>>(std::string("testroom2"), v));
+                    // showAllRooms();
+                
+                }
+            }
+            else
+                events |= EPOLLERR;
+        }
+        if(events & ~EPOLLIN){
+            // remove player from room here
+            remove();
+        }
+    }
+    void write(const char * buffer, int count){
+        if(count != ::write(_fd, buffer, count))
+            remove();
+        
+    }
+    void remove() {
+        printf("removing %d\n", _fd);
+        clients.erase(this);
+        delete this;
+    }
+};
 
 class : Handler {
     public:
@@ -45,7 +127,6 @@ class : Handler {
             printf("new connection from: %s:%hu (fd: %d)\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port), clientFd);
             
             clients.insert(new Client(clientFd));
-
         }
         if(events & ~EPOLLIN){
             error(0, errno, "Event %x on server socket", events);
@@ -53,7 +134,6 @@ class : Handler {
         }
     }
 } servHandler;
-
 
 int main(int argc, char ** argv){
     if(argc != 2) error(1, 0, "Need 1 arg (port)");
@@ -88,7 +168,6 @@ int main(int argc, char ** argv){
     }
 }
 
-
 uint16_t readPort(char * txt){
     char * ptr;
     auto port = strtol(txt, &ptr, 10);
@@ -115,7 +194,15 @@ void sendToAllBut(int fd, char * buffer, int count){
     while(it!=clients.end()){
         Client * client = *it;
         it++;
-        if(client->getFd()!=fd)
+        if(client->fd()!=fd)
             client->write(buffer, count);
     }
+}
+
+bool check_username(std::string name){
+    if(std::find(usernames.begin(), usernames.end(), name) != usernames.end()) {
+        return true;
+    }
+    usernames.push_back(name);
+    return false;
 }

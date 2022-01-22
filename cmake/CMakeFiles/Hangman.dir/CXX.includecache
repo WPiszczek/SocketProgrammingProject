@@ -6,21 +6,7 @@
 
 #IncludeRegexTransform: 
 
-/home/user/Desktop/SocketProgrammingProject/Client.h
-globals.h
-/home/user/Desktop/SocketProgrammingProject/globals.h
-
-/home/user/Desktop/SocketProgrammingProject/globals.h
-structs.h
-/home/user/Desktop/SocketProgrammingProject/structs.h
-
-/home/user/Desktop/SocketProgrammingProject/server.cpp
-globals.h
-/home/user/Desktop/SocketProgrammingProject/globals.h
-Client.h
-/home/user/Desktop/SocketProgrammingProject/Client.h
-
-/home/user/Desktop/SocketProgrammingProject/structs.h
+/home/user/Desktop/SocketProgrammingProject v2/server_oneFile.cpp
 cstdlib
 -
 cstdio
@@ -43,15 +29,13 @@ sys/epoll.h
 -
 unordered_set
 -
-unordered_map
--
 signal.h
 -
-vector
+iostream
 -
 algorithm
 -
-iostream
+vector
 -
 cstring
 -

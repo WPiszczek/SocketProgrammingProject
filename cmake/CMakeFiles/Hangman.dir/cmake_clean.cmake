@@ -1,9 +1,7 @@
 file(REMOVE_RECURSE
-  "../bin/Hangman"
-  "../bin/Hangman.pdb"
-  "CMakeFiles/Hangman.dir/Client.cpp.o"
-  "CMakeFiles/Hangman.dir/globals.cpp.o"
-  "CMakeFiles/Hangman.dir/server.cpp.o"
+  "../Hangman"
+  "../Hangman.pdb"
+  "CMakeFiles/Hangman.dir/server_oneFile.cpp.o"
 )
 
 # Per-language clean rules from dependency scanning.

@@ -48,10 +48,10 @@ RM = /usr/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/user/Desktop/SocketProgrammingProject
+CMAKE_SOURCE_DIR = "/home/user/Desktop/SocketProgrammingProject v2"
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/user/Desktop/SocketProgrammingProject/cmake
+CMAKE_BINARY_DIR = "/home/user/Desktop/SocketProgrammingProject v2/cmake"
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -80,9 +80,9 @@ edit_cache/fast: edit_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/user/Desktop/SocketProgrammingProject/cmake/CMakeFiles /home/user/Desktop/SocketProgrammingProject/cmake/CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start "/home/user/Desktop/SocketProgrammingProject v2/cmake/CMakeFiles" "/home/user/Desktop/SocketProgrammingProject v2/cmake/CMakeFiles/progress.marks"
 	$(MAKE) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/user/Desktop/SocketProgrammingProject/cmake/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start "/home/user/Desktop/SocketProgrammingProject v2/cmake/CMakeFiles" 0
 .PHONY : all
 
 # The main clean target
@@ -123,86 +123,32 @@ Hangman/fast:
 	$(MAKE) -f CMakeFiles/Hangman.dir/build.make CMakeFiles/Hangman.dir/build
 .PHONY : Hangman/fast
 
-Client.o: Client.cpp.o
+server_oneFile.o: server_oneFile.cpp.o
 
-.PHONY : Client.o
-
-# target to build an object file
-Client.cpp.o:
-	$(MAKE) -f CMakeFiles/Hangman.dir/build.make CMakeFiles/Hangman.dir/Client.cpp.o
-.PHONY : Client.cpp.o
-
-Client.i: Client.cpp.i
-
-.PHONY : Client.i
-
-# target to preprocess a source file
-Client.cpp.i:
-	$(MAKE) -f CMakeFiles/Hangman.dir/build.make CMakeFiles/Hangman.dir/Client.cpp.i
-.PHONY : Client.cpp.i
-
-Client.s: Client.cpp.s
-
-.PHONY : Client.s
-
-# target to generate assembly for a file
-Client.cpp.s:
-	$(MAKE) -f CMakeFiles/Hangman.dir/build.make CMakeFiles/Hangman.dir/Client.cpp.s
-.PHONY : Client.cpp.s
-
-globals.o: globals.cpp.o
-
-.PHONY : globals.o
+.PHONY : server_oneFile.o
 
 # target to build an object file
-globals.cpp.o:
-	$(MAKE) -f CMakeFiles/Hangman.dir/build.make CMakeFiles/Hangman.dir/globals.cpp.o
-.PHONY : globals.cpp.o
+server_oneFile.cpp.o:
+	$(MAKE) -f CMakeFiles/Hangman.dir/build.make CMakeFiles/Hangman.dir/server_oneFile.cpp.o
+.PHONY : server_oneFile.cpp.o
 
-globals.i: globals.cpp.i
+server_oneFile.i: server_oneFile.cpp.i
 
-.PHONY : globals.i
-
-# target to preprocess a source file
-globals.cpp.i:
-	$(MAKE) -f CMakeFiles/Hangman.dir/build.make CMakeFiles/Hangman.dir/globals.cpp.i
-.PHONY : globals.cpp.i
-
-globals.s: globals.cpp.s
-
-.PHONY : globals.s
-
-# target to generate assembly for a file
-globals.cpp.s:
-	$(MAKE) -f CMakeFiles/Hangman.dir/build.make CMakeFiles/Hangman.dir/globals.cpp.s
-.PHONY : globals.cpp.s
-
-server.o: server.cpp.o
-
-.PHONY : server.o
-
-# target to build an object file
-server.cpp.o:
-	$(MAKE) -f CMakeFiles/Hangman.dir/build.make CMakeFiles/Hangman.dir/server.cpp.o
-.PHONY : server.cpp.o
-
-server.i: server.cpp.i
-
-.PHONY : server.i
+.PHONY : server_oneFile.i
 
 # target to preprocess a source file
-server.cpp.i:
-	$(MAKE) -f CMakeFiles/Hangman.dir/build.make CMakeFiles/Hangman.dir/server.cpp.i
-.PHONY : server.cpp.i
+server_oneFile.cpp.i:
+	$(MAKE) -f CMakeFiles/Hangman.dir/build.make CMakeFiles/Hangman.dir/server_oneFile.cpp.i
+.PHONY : server_oneFile.cpp.i
 
-server.s: server.cpp.s
+server_oneFile.s: server_oneFile.cpp.s
 
-.PHONY : server.s
+.PHONY : server_oneFile.s
 
 # target to generate assembly for a file
-server.cpp.s:
-	$(MAKE) -f CMakeFiles/Hangman.dir/build.make CMakeFiles/Hangman.dir/server.cpp.s
-.PHONY : server.cpp.s
+server_oneFile.cpp.s:
+	$(MAKE) -f CMakeFiles/Hangman.dir/build.make CMakeFiles/Hangman.dir/server_oneFile.cpp.s
+.PHONY : server_oneFile.cpp.s
 
 # Help Target
 help:
@@ -213,15 +159,9 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
 	@echo "... Hangman"
-	@echo "... Client.o"
-	@echo "... Client.i"
-	@echo "... Client.s"
-	@echo "... globals.o"
-	@echo "... globals.i"
-	@echo "... globals.s"
-	@echo "... server.o"
-	@echo "... server.i"
-	@echo "... server.s"
+	@echo "... server_oneFile.o"
+	@echo "... server_oneFile.i"
+	@echo "... server_oneFile.s"
 .PHONY : help
 
 

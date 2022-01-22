@@ -4,9 +4,7 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
-  "/home/user/Desktop/SocketProgrammingProject/Client.cpp" "/home/user/Desktop/SocketProgrammingProject/cmake/CMakeFiles/Hangman.dir/Client.cpp.o"
-  "/home/user/Desktop/SocketProgrammingProject/globals.cpp" "/home/user/Desktop/SocketProgrammingProject/cmake/CMakeFiles/Hangman.dir/globals.cpp.o"
-  "/home/user/Desktop/SocketProgrammingProject/server.cpp" "/home/user/Desktop/SocketProgrammingProject/cmake/CMakeFiles/Hangman.dir/server.cpp.o"
+  "/home/user/Desktop/SocketProgrammingProject v2/server_oneFile.cpp" "/home/user/Desktop/SocketProgrammingProject v2/cmake/CMakeFiles/Hangman.dir/server_oneFile.cpp.o"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 
