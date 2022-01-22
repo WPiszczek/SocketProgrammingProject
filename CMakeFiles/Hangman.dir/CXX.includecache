@@ -1,0 +1,42 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/atman/sk2/projekt/SocketProgrammingProject/server.cpp
+cstdlib
+-
+cstdio
+-
+unistd.h
+-
+sys/socket.h
+-
+netinet/in.h
+-
+arpa/inet.h
+-
+errno.h
+-
+error.h
+-
+netdb.h
+-
+sys/epoll.h
+-
+unordered_set
+-
+signal.h
+-
+vector
+-
+algorithm
+-
+iostream
+-
+cstring
+-
+
