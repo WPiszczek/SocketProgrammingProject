@@ -18,7 +18,6 @@
 using namespace std;
 
 
-std::vector<std::string> usernames;
 // std::unordered_map<int, User> users;
 
 constexpr char words[3][20] = {
@@ -47,7 +46,7 @@ struct Player{
 
 };
 
-
+std::vector<string> usernames;
 bool check_username(std::string name){
     if(std::find(usernames.begin(), usernames.end(), name) != usernames.end()) {
         return true;
@@ -61,9 +60,12 @@ class Client;
 
 int servFd;
 int epollFd;
-std::unordered_set<Client*> clients;
 
+
+std::unordered_set<Client*> clients;
 std::unordered_set<Player*> players;
+
+
 
 void ctrl_c(int);
 
@@ -82,12 +84,15 @@ class Client : public Handler {
     int _fd;
     std::string username;
     int remaining_lives = 2;
+    int gamestate = 0;
 
 
 public:
     Client(int fd) : _fd(fd) {
 
         // players.insert();
+        char s[] = "Podaj nazwe uzytkownika: ";
+        write(s, strlen(s));
         epoll_event ee {EPOLLIN|EPOLLRDHUP, {.ptr=this}};
         epoll_ctl(epollFd, EPOLL_CTL_ADD, _fd, &ee);
     }
@@ -104,17 +109,23 @@ public:
             char buffer[256];
             ssize_t count = read(_fd, buffer, 256);
             if(count > 0){
-                std::cout<<buffer;
-                if(buffer[0] == '1'){
-                    char s[] = "Podaj nazwe: ";
-                    write(s, strlen(s));
+                // std::cout<<buffer;
 
-                    int stan = 0;
-                    set_username(s);
-                    cout << "FUnkcja set_nickname\n";
+
+            if(gamestate == 0){ // stan podania nazwy uzytkownika
+                if (!check_username(buffer)){
+                    username = buffer;
+                    cout << "here";
                     cout << username;
-
+                    gamestate++;
                 }
+
+                else{
+                    char s[] = "Podano istniejaca nazwe uzytkownika\nPodaj inna nazwe uzytkownika:";
+                    write(s, strlen(s));
+                }
+
+            } 
 
 
 
@@ -133,15 +144,36 @@ public:
             remove();
         
     }
+
     void remove() {
         printf("removing %d\n", _fd);
         clients.erase(this);
         delete this;
     }
 
-    void set_username(std::string nick){
-        username = nick;
+    void ask_nick(){
+        char buffer[256];
+        ssize_t count = read(_fd, buffer, 256);
+        bool keep_asking = true;
+        while(keep_asking){
+            char s[] = "Podaj nazwe uzytkownika: ";
+            write(s, strlen(s));
+
+            if (!check_username(s)){
+                username = s;
+                cout << "here";
+                keep_asking = false;
+            }
+
+            else{
+                char nazwa_istnieje[] = "Nazwa juz istnieje";
+                write(nazwa_istnieje, strlen(nazwa_istnieje));
+            }
+
+        }
     }
+
+
 };
 
 class : Handler {

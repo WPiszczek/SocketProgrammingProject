@@ -5,3 +5,5 @@ project(Hangman)
 
 # add the executable
 add_executable(Hangman server.cpp)
+
+add_compile_options(-Wall -Wextra)
