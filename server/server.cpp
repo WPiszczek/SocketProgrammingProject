@@ -27,25 +27,6 @@ constexpr char words[3][20] = {
     "protocol"
 };
 
-// struct Client{
-//     std::string username;
-//     int remaining_lives = 9;
-//     int socket;
-// } clientss;
-
-struct HangmanGame{
-    bool is_on = 0;
-    int num_of_players = 0;
-    int current_round_number = 0;
-    int num_of_rounds = 0;
-    char word_to_guess[20];
-} game;
-
-struct Player{
-    std::string username = "";
-    int remaining_lives = 2;
-
-};
 
 std::vector<string> usernames;
 bool check_username(std::string name){
@@ -55,16 +36,33 @@ bool check_username(std::string name){
     usernames.push_back(name);
     return false;
 }
-
-
 class Client;
+class HangmanGame;
+std::unordered_set<Client*> clients;
+std::unordered_set<HangmanGame*> games;
+
+std::vector<string> roomnames;
+bool check_create_roomname(std::string name){
+    if(std::find(roomnames.begin(), roomnames.end(), name) != roomnames.end()) {
+        return true;
+    }
+    roomnames.push_back(name);
+    return false;
+}
+
+bool check_join_roomname(std::string name){
+    if(std::find(roomnames.begin(), roomnames.end(), name) != roomnames.end()) {
+        return true;
+    }
+    return false;
+}
+std::unordered_map<std::string, HangmanGame*> rooms;
+
+
 
 int servFd;
 int epollFd;
 
-std::unordered_set<Client*> clients;
-std::unordered_set<Player*> players;
-std::unordered_map<std::string, vector<Client*>> rooms;
 
 
 void ctrl_c(int);
@@ -80,6 +78,47 @@ struct Handler {
     virtual void handleEvent(uint32_t events) = 0;
 };
 
+
+class HangmanGame{
+    
+        string room_name;
+        std::string word_to_guess;
+        vector<Client*> players_in_game;
+        Client* host;
+        int num_of_players;
+        bool is_on;
+        int current_round_number;
+        int num_of_rounds;
+ 
+    public:
+        HangmanGame(string room){
+            this->room_name = room;
+            this->num_of_players = 0;
+            this->is_on = 0;
+            this->current_round_number = 0;
+            this->num_of_rounds = 0;
+        }
+
+        string getRoomName(){
+            return this->room_name;
+        }
+
+        void setHost(Client* newhost){
+            this -> host = newhost;
+        }
+
+        void addPlayer(Client* newplayer){
+            if (players_in_game.empty()) {
+                setHost(newplayer);
+            }
+            players_in_game.push_back(newplayer);
+        }
+    
+};
+
+
+
+
 class Client : public Handler {
     int _fd;
     std::string username;
@@ -91,8 +130,8 @@ public:
     Client(int fd) : _fd(fd) {
 
         // players.insert();
-        char s[] = "Podaj nazwe uzytkownika: ";
-        write(s, strlen(s));
+        std::string msg("Gamestate 0");
+        write(msg.c_str(), msg.length());
         epoll_event ee {EPOLLIN|EPOLLRDHUP, {.ptr=this}};
         epoll_ctl(epollFd, EPOLL_CTL_ADD, _fd, &ee);
     }
@@ -106,34 +145,75 @@ public:
 
     virtual void handleEvent(uint32_t events) override {
         if(events & EPOLLIN) {
-            char buffer[256];
-            ssize_t count = read(_fd, buffer, 256);
+            char buf[256];
+            ssize_t count = read(_fd, buf, 256);
             if(count > 0){
-               
+                string buffer = string(buf).substr(0, count);
                 if(gamestate == 0){ // stan podania nazwy uzytkownika
-                        if (!check_username(buffer)){ 
-                            username = buffer;
-                            cout << username;
-                            gamestate++;
-                            cout << gamestate << endl;
-                        }
+                    if (!check_username(buffer)){ 
+                        username = buffer;
+                        gamestate = 2;
+                        cout<< username << " in gamestep: " << gamestate<<endl;
+                        std::string msg("Correct username");
+                        write(msg.c_str(), msg.length());
+                      
+                        // showAllRooms();
+                        // std::string msg2("Wybierz (join id) albo stworz pokoj (create new_id):\n");
+                        // std::string msg2("Gamestate 1");
+                        // write(msg2.c_str(), msg2.length());
+                    }
 
-                        else{
-                            std::string msg("Podano istniejaca nazwe uzytkownika\nPodaj inna nazwe uzytkownika:");
+                    else{
+                        std::string msg("Not correct username");
+                        write(msg.c_str(), msg.length());
+                    }
+
+                }   
+                // gamestate 1 - choose between create and join room, only on client side
+                // gamestate 2 - check if correct joining/creating
+
+                else if(gamestate == 2){ 
+                    // cout << buffer.length();
+                    cout << buffer <<endl;
+                    string tmp = buffer.substr(0, 4);
+                    if (buffer.substr(0, 6) == "create") {
+                        string roomname = buffer.substr(7);
+                        cout << roomname << endl;
+                        if (!check_create_roomname(roomname)) {
+                            gamestate = 2;
+                            HangmanGame* game = new HangmanGame(roomname);
+                            games.insert(game);
+                            rooms[roomname] = game;
+                            cout<< username << " in gamestep: " << gamestate<<endl;
+                            std::string msg("Correct create roomname");
+                            write(msg.c_str(), msg.length());
+                        } else {
+                            std::string msg("Not correct create roomname");
                             write(msg.c_str(), msg.length());
                         }
 
-                    }   
 
-                if(gamestate == 1){ // lobby - create a room or join one
-                    std::string msg("Gamestate 1\n");
-                    write(msg.c_str(), msg.length());
-                    std::vector<Client*> v;
-                    v.push_back(this);
-                    rooms.emplace(std::pair<std::string,vector<Client*>>(std::string("testroom"), v));
-                    rooms.emplace(std::pair<std::string,vector<Client*>>(std::string("testroom2"), v));
-                    showAllRooms();
-                    // write
+                    } else if (buffer.substr(0, 4) == "join") {
+                        string roomname = buffer.substr(5);
+                        cout << roomname << endl;
+                        if (check_join_roomname(roomname)) {
+                            gamestate = 2;
+
+                            auto it = rooms.find(roomname);
+
+                            it->second->addPlayer(this);
+
+                            cout << username << " in gamestep: " << gamestate<<endl;
+                            std::string msg("Correct join roomname");
+                            write(msg.c_str(), msg.length());
+                        } else {
+                            std::string msg("Not correct join roomname");
+                            write(msg.c_str(), msg.length());
+                        }
+
+
+                    } 
+
                 
                 }
             }
@@ -145,14 +225,26 @@ public:
             remove();
         }
     }
-    void showAllRooms(){
-        std::string msg("Dostepne pokoje: \n");
-        for (auto v : rooms){
-            msg.append(v.first);
-            msg.append(string("\n"));
-        }
-        write(msg.c_str(), msg.length());
+    // void showAllRooms(){
+    //     std::string msg("Dostepne pokoje: \n");
+    //     for (auto g : games){
+    //         msg.append(g->getRoomName());
+    //         msg.append(string("\n"));
+    //     }
+    //     write(msg.c_str(), msg.length());
      
+    // }
+
+    bool check_player_joining_game(string buf){
+        buf.append("\0");
+        cout << buf.length();
+        if(string("join ").compare(buf.substr(0,5)) == 0){
+            // if()
+            return true;
+            // string substring = buf.substr(5, )
+        }
+
+        return false;
     }
 
     void write(const char * buffer, int count){
@@ -164,6 +256,7 @@ public:
     void remove() {
         printf("removing %d\n", _fd);
         clients.erase(this);
+        usernames.erase(std::remove(usernames.begin(), usernames.end(), this->username), usernames.end());
         delete this;
     }
 
@@ -212,6 +305,7 @@ class : Handler {
         }
     }
 } servHandler;
+
 
 int main(int argc, char ** argv){
     if(argc != 2) error(1, 0, "Need 1 arg (port)");
