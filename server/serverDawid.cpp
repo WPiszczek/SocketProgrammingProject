@@ -332,11 +332,11 @@ void Client::handleEvent(uint32_t events) {
                     if (!check_create_roomname(roomname)) {
                         // heap allocated - memory needs to be free'd with 'delete'
                         HangmanGame* gameroom = new HangmanGame(roomname);
+                        this->in_roomname = roomname;
                         gameroom->addPlayer(fd(), this);
                         // gameroom->setHost(this); not necessary addPlayer to empty container handles setting the first player as the host
                         order = gameroom->getOrder();
                         rooms[roomname] = gameroom;
-
                         gamestate = 3;
                         cout<< username << "> in gamestep: " << gamestate<<endl;
                         PROMPT("Correct create roomname");
@@ -388,40 +388,25 @@ void Client::handleEvent(uint32_t events) {
 
                     if(amihost){
                         cout << username << " - host wants to quit the lobby"<< endl;
-                        if((rooms[in_roomname]->getPlayerCount())<=1){
-                            cout << username << " - host wants to quit the lobby2"<< endl;
-                            sleep(1);
+                        int playerCount = rooms.find(in_roomname)->second->getPlayerCount();
+                        cout << playerCount << endl;
+                        if(playerCount <= 1){
                             auto it = rooms.find(in_roomname);
                             cout << it->first;
                             if(it!=rooms.end()){
                                 delete it->second;
                                 rooms.erase(it);
                                 
-                            }
-                            gamestate = 2;
-                                
-//     while(it!=clients.end())
-//             std::map<std::string, Texture*>::iterator itr = textureMap.find("some/path.png");
-// if (itr != textureMap.end())
-// {
-//     // found it - delete it
-//     delete itr->second;
-//     textureMap.erase(itr);
-// }
-                            
+                            }          
                         }
                     }
-
                     else{
-                        gamestate = 2;
-                        // auto it = rooms.find(in_roomname);
                         rooms[in_roomname]->removePlayer(fd());
                         rooms[in_roomname]->showPeopleInGame();
-                        this->setRoomname("");
-
                     }
 
-
+                    gamestate = 2;
+                    this->setRoomname("");
                     
                     
                     PROMPT("Join, or create a room:");
@@ -474,6 +459,7 @@ void Client::remove() {
     usernames.erase(std::remove(usernames.begin(), usernames.end(), this->username), usernames.end());
     delete this;
 }
+
 void Client::setRoomname(std::string roomname){
     this->in_roomname = roomname;
 }
