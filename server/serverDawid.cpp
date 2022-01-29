@@ -35,6 +35,9 @@ inline bool instanceof(const T*) {
         std::string msg(x);\
         write(msg.c_str(), msg.length());\
 
+#define PROMPT_STR(x)\
+        write(x.c_str(), x.length());\
+
 
 
 constexpr char words[3][20] = {
@@ -52,7 +55,6 @@ bool check_username(std::string name){
     usernames.push_back(name);
     return false;
 }
-
 
 class HangmanGame;
 
@@ -75,16 +77,10 @@ bool check_join_roomname(std::string name){
     return false;
 }
 
-
-
 std::unordered_map<std::string, HangmanGame*> rooms;
-
-
 
 int servFd;
 int epollFd;
-
-
 
 void ctrl_c(int);
 
@@ -95,19 +91,18 @@ uint16_t readPort(char * txt);
 void setReuseAddr(int sock);
 
 class HangmanGame{
-    
         string room_name;
         std::string word_to_guess;
-        // vector<Client*> players_in_game;
-
         // deskryptor plikow to klucz w mapie
         std::unordered_map<int, Client*> players_in_game;
-
+        // std::vector<Client*> players_in_game;
         Client* host;
+
         int num_of_players;
         bool is_on;
         int current_round_number;
         int num_of_rounds;
+        int max_order_id; // order of players joining game set as the attribute of the player
  
     public:
         HangmanGame(string room){
@@ -116,10 +111,20 @@ class HangmanGame{
             this->is_on = 0;
             this->current_round_number = 0;
             this->num_of_rounds = 0;
+            this->max_order_id = 0;
         }
 
-        string getRoomName(){
+        ~HangmanGame(){};
+
+        std::string getRoomName(){
             return this->room_name;
+        }
+
+        // careful-  increments max_order by default!
+        int getOrder(){
+            int tmp = this-> max_order_id;
+            this->max_order_id++;
+            return tmp;
         }
 
 
@@ -128,12 +133,45 @@ class HangmanGame{
                 setHost(newplayer);
             }
             players_in_game.insert(std::pair<int, Client*>(fd, newplayer));
+            newplayer->setOrder(getOrder());
+            num_of_players++;
         }
 
         void setHost(Client* newhost){
             this->host = newhost;
+            this->host->setAmihost(true);
         }
 
+        void removePlayer(int clientFd){
+            // std::shared_ptr<Client> player = players_in_game[clientFd];
+            players_in_game.erase(clientFd);
+            num_of_players--;
+        }
+
+        void showPeopleInGame(){
+            std::string s("\n=== People in the room: === \n");
+            auto it = players_in_game.begin();
+            while(it!=players_in_game.end()){
+                Client* player = (it->second);
+                it++;
+                s.append(player->getUsername());
+            }
+
+            sendToAll(s);
+        }
+
+        void sendToAll(std::string s){
+            auto it = players_in_game.begin();
+            while(it!=players_in_game.end()){
+                Client* player = (it->second);
+                it++;
+                player->write(s.c_str(), s.length());
+            }
+        }
+
+        int getPlayerCount(){
+            return this->num_of_players;
+        }
 
 
         // std::unordered_map<int, std::shared_ptr<Client>> getPlayers(){
@@ -155,45 +193,7 @@ class HangmanGame{
         //     players_in_game.erase(std::remove(players_in_game.begin(),players_in_game.end(), player), players_in_game.end());
         // }
 
-        void removePlayer(int clientFd){
-            // std::shared_ptr<Client> player = players_in_game[clientFd];
-            players_in_game.erase(clientFd);
-        }
-
-
-        void showPeopleInGame(){
-            std::string s("People in the room: ");
-
-            // for (const auto player :players_in_game){
-            //     cout << player->second->getUsername();
-            // }
-
-            auto it = players_in_game.begin();
-            while(it!=players_in_game.end()){
-                Client* value = (it->second);
-                cout << value->getUsername();
-            }
-        }
-
-
-        // for (auto p: players_in_game){
-        //     auto player = p->second;
-        //     cout << player->getUsername();
-        // }
-
-        
-    
 };
-
-// void sendToAllBut(int fd, char * buffer, int count){
-//     auto it = clients.begin();
-//     while(it!=clients.end()){
-//         Client * client = *it;
-//         it++;
-//         if(client->fd()!=fd)
-//             client->write(buffer, count);
-//     }
-// }
 
 
 class : Handler {
@@ -282,11 +282,12 @@ void sendToAllBut(int fd, char * buffer, int count){
     }
 }
 
-
+//////////////////////////////////////////////////////////////////////////////////////
 
 Client::Client(int fd) : _fd(fd) {
 
     // players.insert();
+    amihost = false;
     PROMPT("Write your username: ");
     epoll_event ee {EPOLLIN|EPOLLRDHUP, {.ptr=this}};
     epoll_ctl(epollFd, EPOLL_CTL_ADD, _fd, &ee);
@@ -296,8 +297,8 @@ Client::~Client(){
     shutdown(_fd, SHUT_RDWR);
     close(_fd);
 }
-int Client::fd() const {return _fd;}
 
+int Client::fd() const {return _fd;}
 
 void Client::handleEvent(uint32_t events) {
     if(events & EPOLLIN) {
@@ -329,14 +330,17 @@ void Client::handleEvent(uint32_t events) {
                     string roomname = buffer.substr(7);
                     cout << roomname << endl;
                     if (!check_create_roomname(roomname)) {
-                        HangmanGame* game = new HangmanGame(roomname); // heap allocated - memory needs to be free'd with 'delete'
-                        games.insert(game);
-                        rooms[roomname] = game;
+                        // heap allocated - memory needs to be free'd with 'delete'
+                        HangmanGame* gameroom = new HangmanGame(roomname);
+                        gameroom->addPlayer(fd(), this);
+                        // gameroom->setHost(this); not necessary addPlayer to empty container handles setting the first player as the host
+                        order = gameroom->getOrder();
+                        rooms[roomname] = gameroom;
+
                         gamestate = 3;
                         cout<< username << "> in gamestep: " << gamestate<<endl;
                         PROMPT("Correct create roomname");
 
-                        
 
                         
                     } else {
@@ -351,17 +355,19 @@ void Client::handleEvent(uint32_t events) {
                     if (check_join_roomname(roomname)) {
                         
                         auto it = rooms.find(roomname);
-
-                        it->second->addPlayer(fd(), this);
+                        auto &gameroom = it->second;
+                        gameroom->addPlayer(fd(), this); // add player at the same time - sets the creator of the room as the host
                         gamestate = 3;
-                        
-                        this->setRoomname(roomname);
+                     
+                        in_roomname =roomname;
                         cout << username << "> in gamestep: " << gamestate<<endl;
-                        PROMPT("Joined room sucessfully!\n");
+                        PROMPT("Joined room sucessfully!\n PRESS QUIT: ");
+                        
                         
                         // show people in the room
+                        gameroom->showPeopleInGame();
 
-                        
+                    
 
                     } else {
                         PROMPT("The room doesnt exist, join or create a different room:");
@@ -373,14 +379,58 @@ void Client::handleEvent(uint32_t events) {
 
             
             }
-            else if(gamestate == 3 && buffer.substr(0, 4) == "quit"){
+            else if(gamestate == 3){
+
+                if (buffer.substr(0, 4) == "quit") {
                     // remove this player from the gameroom, 
                     // change host if the host left 
                     // and check how many players are in the game, if less than 1 player - delete room 
 
-                    auto it = rooms.find(in_roomname);
-                    it->second->removePlayer(fd());
-                    this->setRoomname("");
+                    if(amihost){
+                        cout << username << " - host wants to quit the lobby"<< endl;
+                        if((rooms[in_roomname]->getPlayerCount())<=1){
+                            cout << username << " - host wants to quit the lobby2"<< endl;
+                            auto it = rooms.find(in_roomname);
+                            while(it!=rooms.end()){
+                                delete it->second;
+                                rooms.erase(it);
+                                gamestate = 2;
+                            }
+                                
+//     while(it!=clients.end()){
+//         Client * client = *it;
+//         it++;
+//         if(client->fd()!=fd)
+//             client->write(buffer, count);
+//     }
+// }
+
+//             std::map<std::string, Texture*>::iterator itr = textureMap.find("some/path.png");
+// if (itr != textureMap.end())
+// {
+//     // found it - delete it
+//     delete itr->second;
+//     textureMap.erase(itr);
+// }
+                            
+                        }
+                    }
+
+                    else{
+                        gamestate = 2;
+                        // auto it = rooms.find(in_roomname);
+                        rooms[in_roomname]->removePlayer(fd());
+                        rooms[in_roomname]->showPeopleInGame();
+                        this->setRoomname("");
+
+                    }
+
+
+                    
+                    
+                    PROMPT("Join, or create a room:");
+                    // clientLeftTheGameInfo();
+                } 
 
             }
 
@@ -397,7 +447,7 @@ void Client::handleEvent(uint32_t events) {
 
 bool Client::check_player_joining_game(string buf){
     // buf.append("\0");
-    cout << buf.length();
+    // cout << buf.length();
     if(string("join ").compare(buf.substr(0,5)) == 0){
         // if()
         return true;
@@ -431,6 +481,15 @@ void Client::remove() {
 void Client::setRoomname(std::string roomname){
     this->in_roomname = roomname;
 }
+
+void Client::setOrder(int ord){
+    this->order = ord;
+}
+
+void Client::setAmihost(bool b){
+    this->amihost = b;
+}
+
 std::string Client::getRoomname(){
     return this->in_roomname;
 }
