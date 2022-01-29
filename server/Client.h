@@ -11,6 +11,9 @@ class Client : public Handler {
     std::string in_roomname = "";
 
 
+    bool amihost;
+    int order;
+
     int remaining_lives = 2;
     int gamestate = 0;
 
@@ -28,8 +31,9 @@ public:
 
     void remove();
     void setRoomname(std::string roomname);
+    void setOrder(int ord);
+    void setAmihost(bool b);
     std::string getRoomname();
-
     std::string getUsername();
 
     void ask_nick();
