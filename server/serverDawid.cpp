@@ -390,21 +390,17 @@ void Client::handleEvent(uint32_t events) {
                         cout << username << " - host wants to quit the lobby"<< endl;
                         if((rooms[in_roomname]->getPlayerCount())<=1){
                             cout << username << " - host wants to quit the lobby2"<< endl;
+                            sleep(1);
                             auto it = rooms.find(in_roomname);
-                            while(it!=rooms.end()){
+                            cout << it->first;
+                            if(it!=rooms.end()){
                                 delete it->second;
                                 rooms.erase(it);
-                                gamestate = 2;
-                            }
                                 
-//     while(it!=clients.end()){
-//         Client * client = *it;
-//         it++;
-//         if(client->fd()!=fd)
-//             client->write(buffer, count);
-//     }
-// }
-
+                            }
+                            gamestate = 2;
+                                
+//     while(it!=clients.end())
 //             std::map<std::string, Texture*>::iterator itr = textureMap.find("some/path.png");
 // if (itr != textureMap.end())
 // {
