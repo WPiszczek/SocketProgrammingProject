@@ -33,6 +33,7 @@ public:
     void setRoomname(std::string roomname);
     void setOrder(int ord);
     void setAmihost(bool b);
+    void showLobbies();
     std::string getRoomname();
     std::string getUsername();
 

@@ -59,25 +59,40 @@ bool check_username(std::string name){
 class HangmanGame;
 
 std::unordered_set<Client*> clients;
-std::unordered_set<HangmanGame*> games;
-
 std::vector<string> roomnames;
+std::unordered_map<std::string, HangmanGame*> rooms;
+
+
 bool check_create_roomname(std::string name){
-    if(std::find(roomnames.begin(), roomnames.end(), name) != roomnames.end()) {
-        return true;
+    for(auto it = rooms.begin(); it != rooms.end(); ++it){
+        if(name.compare(it->first) == 0){
+            return true;
+        }
     }
-    roomnames.push_back(name);
     return false;
+    // if(std::find(roomnames.begin(), roomnames.end(), name) != roomnames.end()) {
+    //     return true;
+    // }
+    // roomnames.push_back(name);
+    // return false;
 }
 
 bool check_join_roomname(std::string name){
-    if(std::find(roomnames.begin(), roomnames.end(), name) != roomnames.end()) {
-        return true;
+    for(auto it = rooms.begin(); it != rooms.end(); ++it){
+        cout << "Checking: " <<it->first <<endl;
+        if(name.compare(it->first) == 0){
+            return true;
+        }
     }
     return false;
+
+    // if(std::find(roomnames.begin(), roomnames.end(), name) != roomnames.end()) {
+    //     return true;
+    // }
+    // return false;
 }
 
-std::unordered_map<std::string, HangmanGame*> rooms;
+
 
 int servFd;
 int epollFd;
@@ -328,7 +343,6 @@ void Client::handleEvent(uint32_t events) {
                 string tmp = buffer.substr(0, 4);
                 if (buffer.substr(0, 6) == "create") {
                     string roomname = buffer.substr(7);
-                    cout << roomname << endl;
                     if (!check_create_roomname(roomname)) {
                         // heap allocated - memory needs to be free'd with 'delete'
                         HangmanGame* gameroom = new HangmanGame(roomname);
@@ -344,14 +358,14 @@ void Client::handleEvent(uint32_t events) {
 
                         
                     } else {
-                        PROMPT("Not correct create roomname");
+                        PROMPT("roomname already exists, you can join it\n");
                         
                     }
 
 
                 } else if (buffer.substr(0, 4) == "join") {
-                    string roomname = buffer.substr(5);
-                    cout << roomname << endl;
+                    std::string roomname = buffer.substr(5);
+                    cout << username <<"Attempting to join room: "<<roomname << endl;
                     if (check_join_roomname(roomname)) {
                         
                         auto it = rooms.find(roomname);
@@ -478,6 +492,10 @@ std::string Client::getRoomname(){
 
 std::string Client::getUsername(){
     return this->username;
+}
+
+void Client::showLobbies(){
+
 }
 
 void Client::ask_nick(){
