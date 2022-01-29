@@ -8,6 +8,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR})
 # add the executable
 # add_executable(Hangman server.cpp Client.cpp)
 add_executable(Hangman server.cpp)
+add_executable(HangmanDawid serverDawid.cpp)
 # add_executable(Hangman server_old.cpp)
 
 add_compile_options(-Wall -Wextra --std=c++20)
