@@ -105,6 +105,61 @@ uint16_t readPort(char * txt);
 
 void setReuseAddr(int sock);
 
+
+// std::map<char, int> calculate_password_payout(std::string word){
+    
+    
+//     int n = word.length();
+//     char letters[n+1];
+//     strcpy(letters, word.c_str());
+
+//     int i=0;
+//     int letter_frequencies[26];
+//     int j;
+//     while(letters[i] != '\0'){
+//         if (letters[i] >= 'a' && letters[i] <= 'z'){
+//             j = letters['i'] - 'a';
+//             ++letter_frequencies[j];
+//         }
+//         ++i;
+//     }
+
+// }
+
+
+std::map<char, int> calculate_password_payout(std::string word){
+    std::map<char, int> score;
+    
+    int n = word.length();
+    char letters[n+1];
+    strcpy(letters, word.c_str());
+
+    int i=0;
+    int letter_frequencies[26];
+    int j;
+    while(letters[i] != '\0'){
+        if (letters[i] >= 'a' && letters[i] <= 'z'){
+            j = letters[i] - 'a';
+            ++letter_frequencies[j];
+        }
+        score.insert(std::pair<char, int>(letters[i], letter_frequencies[j]));
+        ++i;
+    }
+
+    return score;
+
+}
+
+
+
+struct Password{
+    std::string correct_pass;
+    std::map<char, int> payout;
+    int num_of_letters;
+};
+
+
+
 class HangmanGame{
         string room_name;
         std::string word_to_guess;
@@ -118,12 +173,14 @@ class HangmanGame{
         int current_round_number;
         int num_of_rounds;
         int max_order_id; // order of players joining game set as the attribute of the player
+
+        Password password;
  
     public:
         HangmanGame(string room){
             this->room_name = room;
             this->num_of_players = 0;
-            this->is_on = 0;
+            this->is_on = false;
             this->current_round_number = 0;
             this->num_of_rounds = 0;
             this->max_order_id = 0;
@@ -152,13 +209,43 @@ class HangmanGame{
             num_of_players++;
         }
 
+        void setGameStatus(bool status){
+            this->is_on = status;
+        }
+
         void setHost(Client* newhost){
             this->host = newhost;
             this->host->setAmihost(true);
+
+            std::string msg("=== YOU'RE THE HOST===\n");
+            this->host->write(msg.c_str(), msg.length());
         }
 
         void removePlayer(int clientFd){
             // std::shared_ptr<Client> player = players_in_game[clientFd];
+
+            if(players_in_game[clientFd]->getAmihost()){
+                int min_order = 100000;
+                Client* host_candidate;
+                auto it = players_in_game.begin();
+                while(it!=players_in_game.end()){
+                    if(it->first != clientFd){
+                        Client* player = (it->second);
+                        int tmp = player->getOrder();
+                        if (tmp < min_order){
+                            host_candidate = it->second;
+                            min_order = it->first;
+                            
+                        }
+                    }
+                    
+                    it++;
+                    
+                }
+
+                setHost(host_candidate);
+            }
+
             players_in_game.erase(clientFd);
             num_of_players--;
         }
@@ -188,26 +275,24 @@ class HangmanGame{
             return this->num_of_players;
         }
 
+        bool getGameStatus(){
+            return this->is_on;
+        }
 
-        // std::unordered_map<int, std::shared_ptr<Client>> getPlayers(){
-        //     return this->players_in_game;
-        // }
+        void setPassword(Password new_password){
+            this->password = new_password;
+            // sendToAll(std::string("=== PASSWORD IS SET, THE GAME BEGINS ===").append(password.correct_pass));
 
-        // void setHost(std::shared_ptr<Client> newhost){
-        //     this->host = newhost;
-        // }
-
-        // void addPlayer(int fd, std::shared_ptr<Client> newplayer){
-        //     if (players_in_game.empty()) {
-        //         setHost(newplayer);
-        //     }
-        //     players_in_game.insert(std::pair<int, std::shared_ptr<Client>>(fd, newplayer));
-        // }
-
-        // void removePlayer(std::shared_ptr<Client> player){
-        //     players_in_game.erase(std::remove(players_in_game.begin(),players_in_game.end(), player), players_in_game.end());
-        // }
-
+            std::string s("=== PASSWORD IS SET, THE GAME BEGINS ===");
+            s.append(password.correct_pass);
+            auto it = players_in_game.begin();
+            while(it!=players_in_game.end()){
+                Client* player = (it->second);
+                player->setGamestate(4);
+                player->write(s.c_str(), s.length());
+                it++;          
+            }
+        }
 };
 
 
@@ -326,6 +411,7 @@ void Client::handleEvent(uint32_t events) {
                     username = buffer;
                     gamestate = 2;
                     cout<< username << "> in gamestep: " << gamestate<<endl;
+                    showLobbies();
                     PROMPT("Correct username! \n Join, or create a room:");
 
                 }
@@ -353,12 +439,12 @@ void Client::handleEvent(uint32_t events) {
                         rooms[roomname] = gameroom;
                         gamestate = 3;
                         cout<< username << "> in gamestep: " << gamestate<<endl;
-                        PROMPT("Correct create roomname");
+                        PROMPT("roomname created\n");
 
 
                         
                     } else {
-                        PROMPT("roomname already exists, you can join it\n");
+                        PROMPT("This oomname already exists, you can join it\n");
                         
                     }
 
@@ -371,7 +457,7 @@ void Client::handleEvent(uint32_t events) {
                         auto it = rooms.find(roomname);
                         auto &gameroom = it->second;
                         gameroom->addPlayer(fd(), this); // add player at the same time - sets the creator of the room as the host
-                        gamestate = 3;
+                        
                      
                         in_roomname =roomname;
                         cout << username << "> in gamestep: " << gamestate<<endl;
@@ -381,6 +467,17 @@ void Client::handleEvent(uint32_t events) {
                         // show people in the room
                         gameroom->showPeopleInGame();
 
+                        // joined a game that's already on 
+                        if(rooms[in_roomname]->getGameStatus()){
+                            gamestate = 4;
+                        }
+
+                        // game hasnt started, wait for players
+                        else{
+                            gamestate = 3;
+                        }
+                        
+
                     
 
                     } else {
@@ -389,6 +486,9 @@ void Client::handleEvent(uint32_t events) {
                     }
 
 
+                }
+                else{
+                    PROMPT("Wrong input, Join, or create a room: ");
                 } 
 
             
@@ -402,8 +502,11 @@ void Client::handleEvent(uint32_t events) {
 
                     if(amihost){
                         cout << username << " - host wants to quit the lobby"<< endl;
-                        int playerCount = rooms.find(in_roomname)->second->getPlayerCount();
-                        cout << playerCount << endl;
+                        int playerCount = rooms[in_roomname]->getPlayerCount();
+                        // cout << playerCount << endl;
+
+
+                        // if hosts leaves and the room is almost empty -> delete the game
                         if(playerCount <= 1){
                             auto it = rooms.find(in_roomname);
                             cout << it->first;
@@ -413,6 +516,14 @@ void Client::handleEvent(uint32_t events) {
                                 
                             }          
                         }
+
+                        // else remove the player normally, removePlayer handles changing the host
+                        else{
+                            rooms[in_roomname]->removePlayer(fd());
+                            rooms[in_roomname]->showPeopleInGame();
+
+                        }
+                        amihost = false;
                     }
                     else{
                         rooms[in_roomname]->removePlayer(fd());
@@ -422,12 +533,30 @@ void Client::handleEvent(uint32_t events) {
                     gamestate = 2;
                     this->setRoomname("");
                     
-                    
+                    showLobbies();
                     PROMPT("Join, or create a room:");
                     // clientLeftTheGameInfo();
+                }
+
+                else if(buffer.substr(0, 3) == "set" && amihost){
+                    std::string new_password = buffer.substr(4);
+                    Password password;
+                    password.correct_pass = new_password;
+                    password.num_of_letters = new_password.length();
+                    password.payout = calculate_password_payout(new_password);
+
+                    rooms[in_roomname]->setPassword(password);
+                    rooms[in_roomname]->setGameStatus(true);
+
+
                 } 
 
             }
+            //  GUESSING, game is on
+             else if(gamestate == 4){
+                PROMPT("Guess letter");
+             }
+
 
 
         }
@@ -458,13 +587,30 @@ void Client::write(const char * buffer, int count){
     
 }
 
+
+
+
+
 void Client::remove() {
     printf("removing %d\n", _fd);
 
     // usun gracza z gry
     if (in_roomname != ""){
         HangmanGame* &room = rooms[in_roomname];
-        room->removePlayer(_fd);
+
+        // jezeli jest jedynym graczem w pokoju - usun pokoj, inaczej segfault przy removeplayer i setHost (pusty pokoj)
+        if(room->getPlayerCount() <=1 ){
+            auto it = rooms.find(in_roomname);
+            if(it!=rooms.end()){
+                delete it->second;
+                rooms.erase(it);
+    
+            }          
+        }
+        else{
+            room->removePlayer(_fd);
+        }
+        
     }
     // usun klienta z listy klientow
     clients.erase(this);
@@ -486,6 +632,10 @@ void Client::setAmihost(bool b){
     this->amihost = b;
 }
 
+void Client::setGamestate(int state){
+    this->gamestate = state;
+}
+
 std::string Client::getRoomname(){
     return this->in_roomname;
 }
@@ -494,8 +644,22 @@ std::string Client::getUsername(){
     return this->username;
 }
 
-void Client::showLobbies(){
+int Client::getOrder(){
+    return this->order;
+}
 
+bool Client::getAmihost(){
+    return this->amihost;
+}
+
+void Client::showLobbies(){
+    std::string s(" ==== Available rooms: === \n");
+    for(auto it = rooms.begin(); it != rooms.end(); ++it){
+        s.append(it->first);
+        s.append("\n");
+        
+    }
+    write(s.c_str(),s.length());
 }
 
 void Client::ask_nick(){
