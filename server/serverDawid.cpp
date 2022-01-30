@@ -39,6 +39,7 @@ inline bool instanceof(const T*) {
         write(x.c_str(), x.length());\
 
 
+#define MAX_ORDER 100001
 
 constexpr char words[3][20] = {
     "datagram",
@@ -106,50 +107,6 @@ uint16_t readPort(char * txt);
 void setReuseAddr(int sock);
 
 
-// std::map<char, int> calculate_password_payout(std::string word){
-    
-    
-//     int n = word.length();
-//     char letters[n+1];
-//     strcpy(letters, word.c_str());
-
-//     int i=0;
-//     int letter_frequencies[26];
-//     int j;
-//     while(letters[i] != '\0'){
-//         if (letters[i] >= 'a' && letters[i] <= 'z'){
-//             j = letters['i'] - 'a';
-//             ++letter_frequencies[j];
-//         }
-//         ++i;
-//     }
-
-// }
-
-
-// std::map<char, int> calculate_password_payout(std::string word){
-//     std::map<char, int> score;
-    
-//     int n = word.length();
-//     char letters[n+1];
-//     strcpy(letters, word.c_str());
-
-//     int i=0;
-//     int letter_frequencies[26];
-//     int j;
-//     while(letters[i] != '\0'){
-//         if (letters[i] >= 'a' && letters[i] <= 'z'){
-//             j = letters[i] - 'a';
-//             ++letter_frequencies[j];
-//         }
-//         score.insert(std::pair<char, int>(letters[i], letter_frequencies[j]));
-//         ++i;
-//     }
-
-//     return score;
-
-// }
-
 
 
 struct Password{
@@ -157,6 +114,7 @@ struct Password{
     int num_of_letters;
     std::string underscore;
     std::string guessed_letters;
+    int guessed_letters_correctly;
 };
 
 
@@ -390,19 +348,23 @@ class HangmanGame{
 
         }
 
-        void guess_letter(int clientFd, char l){
+        void guess_letter(int clientFd, char letter){
             int cnt = 0;
             for(int i=0; i < password.num_of_letters ;i++){
-                if(password.correct_pass[i] == l){
-                    if(!(password.guessed_letters.find(l) != std::string::npos)){
-                        password.guessed_letters.append(to_string(l));
-                        password.underscore[i] = password.correct_pass[i];
-                        cnt++;
-                    }
-
+                if(password.correct_pass[i] == letter){              
+                    password.underscore[i] = password.correct_pass[i];
+                    cnt++;             
                 }
             }
-      
+            bool letter_is_already_guessed = (password.guessed_letters.find(letter) != std::string::npos);
+            if(!letter_is_already_guessed){
+                password.guessed_letters.push_back(letter);
+                password.guessed_letters_correctly = password.guessed_letters_correctly+cnt;
+            }
+            else{
+                cnt = 0;
+            }
+            
             if(cnt == 0){
                  int lives = players_in_game[clientFd]->getRemainingLives() - 1;
                  players_in_game[clientFd]->setRemainingLives(lives);
@@ -412,7 +374,8 @@ class HangmanGame{
                 int score_after_guess = score_before_guess + cnt;
                 players_in_game[clientFd]->setScore(score_after_guess);
             }
-
+            cout<< password.guessed_letters <<endl;
+            cout << password.guessed_letters_correctly << endl;
             printGame();
 
         }
@@ -639,40 +602,7 @@ void Client::handleEvent(uint32_t events) {
                     // change host if the host left 
                     // and check how many players are in the game, if less than 1 player - delete room 
 
-                    if(amihost){
-                        cout << username << " - host wants to quit the lobby"<< endl;
-                        int playerCount = rooms[in_roomname]->getPlayerCount();
-                        // cout << playerCount << endl;
-
-
-                        // if hosts leaves and the room is almost empty -> delete the game
-                        if(playerCount <= 1){
-                            auto it = rooms.find(in_roomname);
-                            cout << it->first;
-                            if(it!=rooms.end()){
-                                delete it->second;
-                                rooms.erase(it);
-                                
-                            }          
-                        }
-
-                        // else remove the player normally, removePlayer handles changing the host
-                        else{
-                            rooms[in_roomname]->removePlayer(fd());
-                            rooms[in_roomname]->showPeopleInGame();
-
-                        }
-                        amihost = false;
-                    }
-                    else{
-                        rooms[in_roomname]->removePlayer(fd());
-                        rooms[in_roomname]->showPeopleInGame();
-                    }
-
-                    gamestate = 2;
-                    in_roomname = "";
-                    order = 100001;
-                    
+                    quit_game();  
                     showLobbies();
                     PROMPT("Join, or create a room: ");
                     // clientLeftTheGameInfo();
@@ -680,24 +610,13 @@ void Client::handleEvent(uint32_t events) {
 
                 else if(buffer.substr(0, 3) == "set" && amihost){
 
-                    if(rooms[in_roomname]->getPlayerCount()>=2){
-                        std::string new_password = buffer.substr(4);
-                        Password password;
-                        password.correct_pass = new_password;
-                        password.underscore = std::string(new_password.size() - 1, '_');
-                        password.num_of_letters = new_password.length();
-                        // password.payout = calculate_password_payout(new_password);
-
-                        rooms[in_roomname]->setPassword(password);
-                        rooms[in_roomname]->setGameStatus(true);
-
+                    if(rooms[in_roomname]->getPlayerCount()>=3){              
+                       prepare_and_set_password(buffer.substr(4));
                     }
 
                     else{
-                        PROMPT("WAIT FOR MORE PEOPLE!");
+                        PROMPT("WAIT FOR MORE PEOPLE!\n");
                     }
-
-
 
                 } 
 
@@ -709,12 +628,23 @@ void Client::handleEvent(uint32_t events) {
                         PROMPT("You're dead\n Wait for the round to be over, or quit: ");
                     }
                     else{
-                        rooms[in_roomname]->guess_letter(fd(), buffer[0]);
+
+                        rooms[in_roomname]->guess_letter(fd(), tolower(buffer[0]));
                     }
                  }
 
+                else if(buffer.substr(0, 4) == "quit") {
+                    quit_game();                 
+                    showLobbies();
+                    PROMPT("Join, or create a room: ");
+                    // clientLeftTheGameInfo();
+                }
+                else{
+                    PROMPT("Not a letter or quit!");
+                }
 
-                PROMPT("Guess a letter: ");
+
+                // PROMPT("Guess a letter: ");
              }
 
 
@@ -822,6 +752,42 @@ int Client::getGamestate(){
     return this->gamestate;
 }
 
+void Client::quit_game(){
+    if(amihost){
+        cout << username << " - host wants to quit the lobby"<< endl;
+        int playerCount = rooms[in_roomname]->getPlayerCount();
+        // cout << playerCount << endl;
+
+
+        // if hosts leaves and the room is almost empty -> delete the game
+        if(playerCount <= 1){
+            auto it = rooms.find(in_roomname);
+            cout << it->first;
+            if(it!=rooms.end()){
+                delete it->second;
+                rooms.erase(it);
+                
+            }          
+        }
+
+    // else remove the player normally, removePlayer handles changing the host
+    else{
+        rooms[in_roomname]->removePlayer(fd());
+        rooms[in_roomname]->showPeopleInGame();
+
+    }
+    amihost = false;
+    }  
+    else{
+        rooms[in_roomname]->removePlayer(fd());
+        rooms[in_roomname]->showPeopleInGame();
+    }
+
+    gamestate = 2;
+    in_roomname = "";
+    order = MAX_ORDER;
+}
+
 void Client::showLobbies(){
     std::string s(" ==== Available rooms: === \n");
     for(auto it = rooms.begin(); it != rooms.end(); ++it){
@@ -852,4 +818,21 @@ void Client::ask_nick(){
         }
 
     }
+
+
+}
+
+void Client::prepare_and_set_password(std::string new_password){
+    // transform into lowercase in place
+    transform(new_password.begin(), new_password.end(), new_password.begin(), ::tolower);
+    Password password;
+    password.correct_pass = new_password;
+    password.underscore = std::string(new_password.size() - 1, '_');
+    password.num_of_letters = new_password.length();
+    password.guessed_letters_correctly = 0;
+    // password.payout = calculate_password_payout(new_password);
+
+    rooms[in_roomname]->setPassword(password);
+    rooms[in_roomname]->setGameStatus(true);
+
 }
