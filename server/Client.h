@@ -8,14 +8,14 @@ using namespace std;
 class Client : public Handler {
     int _fd;
     std::string username;
-    std::string in_roomname = "";
+    std::string in_roomname;
 
 
     bool amihost;
     int order;
-
-    int remaining_lives = 2;
-    int gamestate = 0;
+    int remaining_lives;
+    int gamestate;
+    int score;
 
 
 public:
@@ -35,10 +35,15 @@ public:
     void setAmihost(bool b);
     void setGamestate(int state);
     void showLobbies();
+    void setScore(int points);
+    void setRemainingLives(int lives);
     std::string getRoomname();
     std::string getUsername();
     int getOrder();
     bool getAmihost();
+    int getScore();
+    int getRemainingLives();
+    int getGamestate();
 
     void ask_nick();
 };
