@@ -138,11 +138,15 @@ class HangmanGame{
         // std::vector<Client*> players_in_game;
         Client* host;
 
+
         int num_of_players;
         bool is_on;
+
+        int max_order_id; // order of players joining game set as the attribute of the player
+        
         int current_round_number;
         int num_of_rounds;
-        int max_order_id; // order of players joining game set as the attribute of the player
+        int password_setter_fd;
 
         Password password;
  
@@ -160,6 +164,14 @@ class HangmanGame{
 
         std::string getRoomName(){
             return this->room_name;
+        }
+
+        int getPasswordSetterFd(){
+            return this-> password_setter_fd;
+        }
+
+        void setPasswordSetterFd(int clientFd){
+            this->password_setter_fd = clientFd;
         }
 
         // careful-  increments max_order by default!
@@ -191,11 +203,25 @@ class HangmanGame{
             this->host->write(msg.c_str(), msg.length());
         }
 
+
+
+        void setRoundNumber(int rnum){
+            this->num_of_rounds = rnum;
+        }
+
+        int getRoundNumber(){
+            return this->num_of_rounds;
+        }
+
+        int getCurrentRoundNumber(){
+            return this->current_round_number;
+        }
+
         void removePlayer(int clientFd){
             // std::shared_ptr<Client> player = players_in_game[clientFd];
 
             if(players_in_game[clientFd]->getAmihost()){
-                int min_order = 100000;
+                int min_order = MAX_ORDER-1;
                 Client* host_candidate;
                 auto it = players_in_game.begin();
                 while(it!=players_in_game.end()){
@@ -204,7 +230,7 @@ class HangmanGame{
                         int tmp = player->getOrder();
                         if (tmp < min_order){
                             host_candidate = it->second;
-                            min_order = it->first;
+                            min_order = player->getOrder();
                             
                         }
                     }
@@ -295,17 +321,26 @@ class HangmanGame{
 
 
         void printGame(){
-            std::string s("=== Player scores === \n");
+            std::string s("=== Player scores for round: ");
+            s.append(to_string(current_round_number));
+            s.append(" ===\n");
             auto it = players_in_game.begin();
             while(it!=players_in_game.end()){
-                Client* player = (it->second);
-                s.append(player->getUsername());
-                s.append(std::string(" -score: "));
-                s.append(to_string(player->getScore()));
-                s.append(" -lives: ");
-                s.append(to_string(player->getRemainingLives()));
-                s.append("\n");
-               ;
+                if(it->first == password_setter_fd){
+                    s.append(it->second->getUsername());
+                    s.append(" - password provider - host");
+                }
+                else{
+                    Client* player = (it->second);
+                    s.append(player->getUsername());
+                    s.append(std::string(" -score: "));
+                    s.append(to_string(player->getScore()));
+                    s.append(" -lives: ");
+                    s.append(to_string(player->getRemainingLives()));
+                    s.append("\n"); 
+
+                }
+
                 it++;          
             }
 
@@ -313,7 +348,7 @@ class HangmanGame{
             s.append("=== The password is: ");
             s.append(password.underscore);
             s.append("\n");
-            s.append("Guess a letter: ");
+            // s.append("Guess a letter: ");
             sendToAll(s);
 
             // auto it2 = players_in_game.begin();
@@ -322,9 +357,13 @@ class HangmanGame{
             //     player->write(s.c_str(), s.length());
             //     it2++;          
             // }
+
+
         }
 
-        void printGame(int clientFd){
+
+        
+        void printGameWhenJoining(int clientFd){
             std::string s("=== Player scores === \n");
             auto it = players_in_game.begin();
             while(it!=players_in_game.end()){
@@ -343,9 +382,54 @@ class HangmanGame{
             s.append("=== The password is: ");
             s.append(password.underscore);
             s.append("\n");
-            s.append("Guess a letter: ");
+            if (clientFd != host->fd()){
+                s.append("Guess a letter: ");
+            }
+            
             sendTo(s, clientFd);
 
+        }
+
+
+        void setNewHostAfterGame(){
+            if(password_setter_fd != MAX_ORDER){
+                int setter_order = players_in_game[password_setter_fd]->getOrder();
+                int min_order = MAX_ORDER-1;
+
+                Client* host_candidate;
+                auto it = players_in_game.begin();
+                while(it!=players_in_game.end()){
+                    int player_order = it->second->getOrder();
+                    if(player_order > setter_order && player_order < min_order){
+                        min_order = player_order;
+                        host_candidate = it->second;
+                    }
+                    
+                    it++;
+                    
+                }
+
+                if (min_order == MAX_ORDER-1){
+                    auto it2 = players_in_game.begin();
+                    while(it2!=players_in_game.end()){
+                        if(it2->first != password_setter_fd){
+                            Client* player = (it2->second);
+                            int tmp = player->getOrder();
+                            if (tmp < min_order){
+                                host_candidate = it2->second;
+                                min_order = player->getOrder();
+                                
+                            }
+                        }
+                        
+                        it2++;
+                        
+                    }
+                }
+                players_in_game[password_setter_fd]->setPasswordSetterStatus(false);
+                setHost(host_candidate);
+                
+            }
         }
 
         void guess_letter(int clientFd, char letter){
@@ -374,9 +458,56 @@ class HangmanGame{
                 int score_after_guess = score_before_guess + cnt;
                 players_in_game[clientFd]->setScore(score_after_guess);
             }
-            cout<< password.guessed_letters <<endl;
-            cout << password.guessed_letters_correctly << endl;
+            // cout<< password.guessed_letters <<endl;
+            // cout << password.guessed_letters_correctly << endl;
             printGame();
+
+            int lives_sum = 0;
+            auto it = players_in_game.begin();
+            while(it!=players_in_game.end()){
+                if(it->first == password_setter_fd){
+                    continue;
+                }
+                else{
+                    int tmp = it->second->getRemainingLives();
+                    lives_sum += tmp;
+                }
+
+                it++;          
+            }
+
+            // end of game condition - either everyone lost or someone guessed the password
+            if( (lives_sum==0 || password.guessed_letters_correctly == password.num_of_letters ) 
+                && (current_round_number==num_of_rounds || password_setter_fd==MAX_ORDER)){
+                std::string game_over_msg("GAME IS OVER!\n");
+                is_on = false;
+
+                sendToAll(game_over_msg);
+                auto it2 = players_in_game.begin();
+                while(it2!=players_in_game.end()){
+                    it2->second->setGamestate(3);
+                    
+                    it2++;          
+                }
+
+                setNewHostAfterGame();
+            }
+
+            else if(lives_sum==0 || password.guessed_letters_correctly == password.num_of_letters ){
+                std::string round_over_msg("ROUND IS OVER!\n");
+                current_round_number++;
+                is_on = false;
+
+                sendToAll(round_over_msg);
+                auto it2 = players_in_game.begin();
+                while(it2!=players_in_game.end()){
+                    it2->second->setGamestate(3);
+                    
+                    it2++;          
+                }
+            }
+            
+            // current_round_number==num_of_rounds)|
 
         }
 };
@@ -480,6 +611,7 @@ Client::Client(int fd) : _fd(fd) {
     remaining_lives = 2;
     gamestate = 0;
     order = 100001;
+    password_setter = false;
 
     PROMPT("Write your username: ");
     epoll_event ee {EPOLLIN|EPOLLRDHUP, {.ptr=this}};
@@ -569,7 +701,7 @@ void Client::handleEvent(uint32_t events) {
                         // joined a game that's already on 
                         if(rooms[in_roomname]->getGameStatus()){
                             gamestate = 4;
-                            rooms[in_roomname]->printGame(fd());
+                            rooms[in_roomname]->printGameWhenJoining(fd());
                         }
 
                         // game hasnt started, wait for players
@@ -608,10 +740,27 @@ void Client::handleEvent(uint32_t events) {
                     // clientLeftTheGameInfo();
                 }
 
+                else if (buffer.substr(0, 5) == "round" && amihost && !password_setter){
+                    std::string round_count = buffer.substr(6,7); // assuming single digit round number
+                    int round_number = std::stoi(round_count);
+                    cout << "Round num:" << round_number<<" endhere" <<endl;
+                    if(isdigit(round_number)){
+                        rooms[in_roomname]->setRoundNumber(round_number);
+                    }
+                    else{
+                        PROMPT("PROVIDE ONE DIGIT NUMBER! \n");
+                    }
+                    
+
+                }
+
                 else if(buffer.substr(0, 3) == "set" && amihost){
 
                     if(rooms[in_roomname]->getPlayerCount()>=3){              
                        prepare_and_set_password(buffer.substr(4));
+                       password_setter = true;
+                       rooms[in_roomname]->setPasswordSetterFd(fd());
+                       
                     }
 
                     else{
@@ -621,15 +770,15 @@ void Client::handleEvent(uint32_t events) {
                 } 
 
             }
-            //  GUESSING, game is on
-             else if(gamestate == 4){
+            //  GUESSING, game is on, host that set the password (password_setter doesn't participate)
+             else if(gamestate == 4 && !password_setter){
                  if (buffer.length() <= 2){
                     if(remaining_lives == 0){
                         PROMPT("You're dead\n Wait for the round to be over, or quit: ");
                     }
                     else{
-
                         rooms[in_roomname]->guess_letter(fd(), tolower(buffer[0]));
+                        PROMPT("Guess a letter: ");
                     }
                  }
 
@@ -640,7 +789,7 @@ void Client::handleEvent(uint32_t events) {
                     // clientLeftTheGameInfo();
                 }
                 else{
-                    PROMPT("Not a letter or quit!");
+                    PROMPT("Not a letter or quit keyword!");
                 }
 
 
@@ -771,12 +920,16 @@ void Client::quit_game(){
         }
 
     // else remove the player normally, removePlayer handles changing the host
-    else{
-        rooms[in_roomname]->removePlayer(fd());
-        rooms[in_roomname]->showPeopleInGame();
+        else{
+            if(password_setter){
+                rooms[in_roomname]->setPasswordSetterFd(MAX_ORDER);
+            }
 
-    }
-    amihost = false;
+            rooms[in_roomname]->removePlayer(fd());
+            rooms[in_roomname]->showPeopleInGame();
+
+        }
+            amihost = false;
     }  
     else{
         rooms[in_roomname]->removePlayer(fd());
@@ -786,6 +939,9 @@ void Client::quit_game(){
     gamestate = 2;
     in_roomname = "";
     order = MAX_ORDER;
+
+    password_setter = false;
+
 }
 
 void Client::showLobbies(){
@@ -820,6 +976,10 @@ void Client::ask_nick(){
     }
 
 
+}
+
+void Client::setPasswordSetterStatus(bool status){
+    this->password_setter = status;
 }
 
 void Client::prepare_and_set_password(std::string new_password){

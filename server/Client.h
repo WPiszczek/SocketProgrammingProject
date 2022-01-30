@@ -17,6 +17,8 @@ class Client : public Handler {
     int gamestate;
     int score;
 
+    bool password_setter;
+
 
 public:
     Client(int fd);
@@ -47,6 +49,7 @@ public:
     void quit_game();
     void ask_nick();
     void prepare_and_set_password(std::string password);
+    void setPasswordSetterStatus(bool status);
 };
 
 #endif
