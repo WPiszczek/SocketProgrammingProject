@@ -815,7 +815,7 @@ void Client::handleEvent(uint32_t events) {
 
                 else if(buffer.substr(0, 3) == "set" && amihost){
 
-                    if(rooms[in_roomname]->getPlayerCount()>=3){    
+                    if(rooms[in_roomname]->getPlayerCount()>=MIN_PLAYERS_IN_GAME){    
                        password_setter = true;
                        rooms[in_roomname]->setPasswordSetterFd(fd());       
                        prepare_and_set_password(buffer.substr(4));                  
