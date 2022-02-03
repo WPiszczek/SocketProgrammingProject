@@ -25,7 +25,6 @@
 
 using namespace std;
 
-
 template<typename Base, typename T>
 inline bool instanceof(const T*) {
    return is_base_of<Base, T>::value;
@@ -41,13 +40,7 @@ inline bool instanceof(const T*) {
 
 #define MAX_ORDER 100001
 #define MAX_LIVES 2
-
-constexpr char words[3][20] = {
-    "datagram",
-    "password",
-    "protocol"
-};
-
+#define MIN_PLAYERS_IN_GAME 3
 
 std::vector<string> usernames;
 bool check_username(std::string name){
@@ -72,11 +65,6 @@ bool check_create_roomname(std::string name){
         }
     }
     return false;
-    // if(std::find(roomnames.begin(), roomnames.end(), name) != roomnames.end()) {
-    //     return true;
-    // }
-    // roomnames.push_back(name);
-    // return false;
 }
 
 bool check_join_roomname(std::string name){
@@ -87,11 +75,6 @@ bool check_join_roomname(std::string name){
         }
     }
     return false;
-
-    // if(std::find(roomnames.begin(), roomnames.end(), name) != roomnames.end()) {
-    //     return true;
-    // }
-    // return false;
 }
 
 
@@ -109,7 +92,6 @@ void setReuseAddr(int sock);
 
 
 
-
 struct Password{
     std::string correct_pass;
     int num_of_letters;
@@ -119,24 +101,10 @@ struct Password{
 };
 
 
-// string word  = "hangman";
-// string guess = "mansomething";
-// string underscore = string(word.size(), '_'); // init a string with underscores equal to the length of 'word'
-
-// // iterate over the characters in word and guess
-// for (size_t i = 0, iend = min(word.size(), guess.size()); i < iend; i++) {
-//     if (word[i] == guess[i])
-//         underscore[i] = word[i];  // if the characters match at position i, update the underscore.
-// }
-
-// cout << underscore << endl;
-
-
 class HangmanGame{
         std::string room_name;
         // deskryptor plikow to klucz w mapie
         std::unordered_map<int, Client*> players_in_game;
-        // std::vector<Client*> players_in_game;
         Client* host;
 
 
@@ -152,7 +120,7 @@ class HangmanGame{
         Password password;
         
         std::unordered_map<int, std::string> leavers_round_results;
-        std::unordered_map<int, std::string> game_results;
+        std::map<int, std::string> game_results;
  
     public:
         HangmanGame(string room){
@@ -186,13 +154,25 @@ class HangmanGame{
         }
 
 
-        void addPlayer(int fd, Client* newplayer){
+        void addPlayer(int clientFd, Client* newplayer){
             if (players_in_game.empty()) {
                 setHost(newplayer);
             }
-            players_in_game.insert(std::pair<int, Client*>(fd, newplayer));
+            players_in_game.insert(std::pair<int, Client*>(clientFd, newplayer));
             newplayer->setOrder(getOrder());
             num_of_players++;
+
+
+            // if the client reconnected to the game -> overwrite his round results
+            auto it = leavers_round_results.begin();
+            while(it!=leavers_round_results.end()){
+                if(it->first == clientFd){
+                    leavers_round_results.erase(clientFd);
+                }
+                
+                it++;
+                
+            }
         }
 
         void setGameStatus(bool status){
@@ -206,7 +186,6 @@ class HangmanGame{
             std::string msg("=== YOU'RE THE HOST===\n");
             this->host->write(msg.c_str(), msg.length());
         }
-
 
 
         void setRoundNumber(int rnum){
@@ -244,18 +223,21 @@ class HangmanGame{
                 setHost(host_candidate);
             }
 
-            if(is_on){
+            // save player's round result
+            if(is_on && (clientFd != password_setter_fd)){
                 std::string s; 
                 s.append(players_in_game[clientFd]->getUsername());
                 s.append(std::string(" -score: "));
                 s.append(to_string(players_in_game[clientFd]->getScore()));
                 s.append(" -lives: ");
                 s.append(to_string(players_in_game[clientFd]->getRemainingLives()));
-                s.append("\n");
+                s.append(" (disconnected)\n");
                 leavers_round_results.insert(std::pair<int, std::string>(clientFd, s));
 
             }
 
+
+            
             players_in_game.erase(clientFd);
             num_of_players--;
 
@@ -489,9 +471,9 @@ class HangmanGame{
                     current_round_number++;
                     is_on = false;
                     sendToAll(std::string("ROUND IS OVER!\n"));
+                    sendToAll(roundResults());
                     cleanAfterRound();
                     sendTo(std::string("SET A NEW PASSWORD\n"), password_setter_fd);
-                    RoundResults();
 
                 }
                 else{
@@ -499,8 +481,10 @@ class HangmanGame{
                     current_round_number = 1;
                     sendToAll(std::string("GAME OVER!\n"));
                     setNewHostAfterGame();
+                    roundResults();
+                    showGameResults();
                     cleanAfterRound();
-                    // printResults();
+
                 }
 
             }
@@ -512,9 +496,7 @@ class HangmanGame{
         }
 
 
-
-
-        void roundResults(){
+        std::string roundResults(){
             std::string s("=== Player scores for round: ");
             s.append(to_string(current_round_number));
             s.append(" out of: ");
@@ -536,10 +518,31 @@ class HangmanGame{
                     s.append("\n"); 
 
                 }
-
                 it++;          
             }
+            s.append("Leavers: \n"); 
+            auto it2 = leavers_round_results.begin();
+            while(it2!=leavers_round_results.end()){
+                s.append(it2->second);
+                it2++;          
+            }
+            s.append("-----------------------------------------------------------------------------");
+            s.append("\n");
+            
+            game_results.insert(std::pair<int, std::string>(current_round_number, s));
 
+            return s;
+
+        }
+
+        void showGameResults(){
+            std::string result(" \n=== GAME RESULTS ===\n");
+            auto it = game_results.begin();
+            while(it!=game_results.end()){
+                result.append(it->second);
+                it++;          
+            }
+            sendToAll(result);
         }
 
 
@@ -552,97 +555,18 @@ class HangmanGame{
                 player->setRemainingLives(MAX_LIVES);
                 it++;          
             }
+
+            // erase leaver list after the round
+            auto it2 = leavers_round_results.begin();
+            while (it2!= leavers_round_results.end()){
+                leavers_round_results.erase(it2->first);
+                it2++;
+            }
         }
 
-        void guess_letter2(int clientFd, char letter){
-            int cnt = 0;
-            for(int i=0; i < password.num_of_letters ;i++){
-                if(password.correct_pass[i] == letter){              
-                    password.underscore[i] = password.correct_pass[i];
-                    cnt++;             
-                }
-            }
-            bool letter_is_already_guessed = (password.guessed_letters.find(letter) != std::string::npos);
-            if(!letter_is_already_guessed){
-                password.guessed_letters.push_back(letter);
-                password.guessed_letters_correctly = password.guessed_letters_correctly+cnt;
-            }
-            else{
-                cnt = 0;
-            }
-            
-            if(cnt == 0){
-                 int lives = players_in_game[clientFd]->getRemainingLives() - 1;
-                 players_in_game[clientFd]->setRemainingLives(lives);
-            }
-            else if(cnt > 0){
-                int score_before_guess = players_in_game[clientFd]->getScore();
-                int score_after_guess = score_before_guess + cnt;
-                players_in_game[clientFd]->setScore(score_after_guess);
-            }
-            // cout<< password.guessed_letters <<endl;
-            // cout << password.guessed_letters_correctly << endl;
-            
-            printGame();
-
-
-            
-            int lives_sum = 0;
-            auto it = players_in_game.begin();
-            while(it!=players_in_game.end()){
-                if(it->first == password_setter_fd){
-                    continue;
-                }
-                else{
-                    int tmp = it->second->getRemainingLives();
-                    lives_sum += tmp;
-                }
-
-                it++;          
-            }
-
-            cout <<"Lives remaining: " << lives_sum <<endl;
-            // end of game condition - either everyone lost or someone guessed the password
-            if( (lives_sum==0 || password.guessed_letters_correctly == password.num_of_letters) 
-                && (current_round_number==num_of_rounds || password_setter_fd==MAX_ORDER)){
-                cout << "Game ending" <<endl;
-                std::string game_over_msg("GAME IS OVER!\n");
-                is_on = false;
-
-                sendToAll(game_over_msg);
-                auto it2 = players_in_game.begin();
-                while(it2!=players_in_game.end()){
-                    it2->second->setGamestate(3);               
-                    it2++;          
-                }
-
-                setNewHostAfterGame();
-            }
-
-            else if(lives_sum==0 || password.guessed_letters_correctly == password.num_of_letters){
-                std::string round_over_msg("ROUND IS OVER!\n");
-                current_round_number++;
-                is_on = false; // pause game until the host sets a new password
-
-                sendToAll(round_over_msg);
-                auto it2 = players_in_game.begin();
-                while(it2!=players_in_game.end()){
-                    it2->second->setGamestate(3);               
-                    it2++;          
-                }
-            }
-
-            else{
-                cout << "GAME IS ON" << endl;
-                printGame();
-            }
-            
-            // current_round_number==num_of_rounds)|
-
-        }
 };
 
-
+ 
 
 
 class : Handler {
@@ -1074,8 +998,10 @@ void Client::quit_game(){
     gamestate = 2;
     in_roomname = "";
     order = MAX_ORDER;
-
     password_setter = false;
+
+    score = 0;
+    remaining_lives = MAX_LIVES;
 
 }
 

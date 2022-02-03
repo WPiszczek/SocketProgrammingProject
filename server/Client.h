@@ -17,6 +17,7 @@ class Client : public Handler {
     int gamestate;
     int score;
 
+    bool room_creator;
     bool password_setter;
 
 
