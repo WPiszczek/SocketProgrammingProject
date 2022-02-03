@@ -1,10 +1,11 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-#include "Handler.h"
+#include "namespace.h"
 
-using namespace std;
+using HangmanGameNamespace::Handler;
 
+class HangmanGame;
 class Client : public Handler {
     int _fd;
     std::string username;
