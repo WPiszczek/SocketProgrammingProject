@@ -468,22 +468,22 @@ class HangmanGame{
             cout << "Guessed correctly atm: " << password.guessed_letters_correctly << " total: "<< password.num_of_letters<<endl;
             if(lives_sum==0 || password.guessed_letters_correctly == password.num_of_letters){
                 if(current_round_number<num_of_rounds){
-                    current_round_number++;
                     is_on = false;
                     sendToAll(std::string("ROUND IS OVER!\n"));
                     sendToAll(roundResults());
                     cleanAfterRound();
+                    current_round_number++;
                     sendTo(std::string("SET A NEW PASSWORD\n"), password_setter_fd);
 
                 }
                 else{
                     is_on = false; // pause game until the host sets a new password
-                    current_round_number = 1;
                     sendToAll(std::string("GAME OVER!\n"));
                     setNewHostAfterGame();
                     roundResults();
                     showGameResults();
                     cleanAfterRound();
+                    current_round_number = 1;
 
                 }
 
