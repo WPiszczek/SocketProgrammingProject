@@ -22,6 +22,8 @@
 #include <map>
 #include <memory>
 #include <type_traits>
+#include <iomanip>
+#include <sstream>
 
 using namespace std;
 
@@ -62,6 +64,9 @@ namespace HangmanGameNamespace {
     void ctrl_c(int);
     uint16_t readPort(char * txt);
     void setReuseAddr(int sock);
+
+    string packMessage(const char* message);
+    string unpackMessage(int _fd);
 
     struct Password{
         std::string correct_pass;
