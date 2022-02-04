@@ -58,11 +58,12 @@ void HangmanGame::setGameStatus(bool status){
     this->is_on = status;
 }
 
+//sends message "Host"
 void HangmanGame::setHost(Client* newhost){
     this->host = newhost;
     this->host->setAmihost(true);
 
-    std::string msg("=== YOU'RE THE HOST===\n");
+    std::string msg("Host");
     this->host->write(msg.c_str(), msg.length());
 }
 
@@ -114,9 +115,7 @@ void HangmanGame::removePlayer(int clientFd){
         leavers_round_results.insert(std::pair<int, std::string>(clientFd, s));
 
     }
-
-
-    
+   
     players_in_game.erase(clientFd);
     num_of_players--;
 
@@ -135,14 +134,15 @@ void HangmanGame::removePlayer(int clientFd){
 }
 
 void HangmanGame::showPeopleInGame(){
-    std::string s("\n=== People in the room: === \n");
+    std::string s("PeopleInTheRoom;");
     auto it = players_in_game.begin();
     while(it!=players_in_game.end()){
         Client* player = (it->second);
         it++;
         s.append(player->getUsername());
+        s.append(";");
     }
-
+    cout << s << endl;
     sendToAll(s);
 }
 

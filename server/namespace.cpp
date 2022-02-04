@@ -56,3 +56,21 @@ void HangmanGameNamespace::ctrl_c(int){
     printf("Closing server\n");
     exit(0);
 }
+
+string HangmanGameNamespace::packMessage(const char* message){
+    string mess = string(message);
+    int length = mess.length();
+    std::ostringstream ss;
+    ss << std::setw(3) << std::setfill('0') << length;
+    string packed_mess = ss.str() + mess;
+    return packed_mess;
+}
+
+string HangmanGameNamespace::unpackMessage(int _fd){
+    char buf[999] = {0};
+    ssize_t count = read(_fd, buf, 3);
+    int mess_length = atoi(buf);
+    count = read(_fd, buf, mess_length);
+    buf[mess_length] = '\0';
+    return string(buf);
+}

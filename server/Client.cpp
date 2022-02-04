@@ -14,7 +14,7 @@ Client::Client(int fd) : _fd(fd) {
     order = MAX_ORDER+1;
     password_setter = false;
 
-    PROMPT("Write your username: ");
+    PROMPT("Gamestate 0");
     epoll_event ee {EPOLLIN|EPOLLRDHUP, {.ptr=this}};
     epoll_ctl(epollFd, EPOLL_CTL_ADD, _fd, &ee);
 }
@@ -28,185 +28,162 @@ int Client::fd() const {return _fd;}
 
 void Client::handleEvent(uint32_t events) {
     if(events & EPOLLIN) {
-        char buf[256];
-        ssize_t count = read(_fd, buf, 256);
-        if(count > 0){
-            string buffer = string(buf).substr(0, count);
-            if(gamestate == 0){ // stan podania nazwy uzytkownika
-                if (!check_username(buffer)){ 
-                    username = buffer;
-                    gamestate = 2;
+        string buffer = unpackMessage(_fd);
+        
+        if(gamestate == 0){ // stan podania nazwy uzytkownika
+            if (!check_username(buffer)){ 
+                username = buffer;
+                gamestate = 2;
+                cout<< username << "> in gamestep: " << gamestate<<endl;
+                // showLobbies();
+                PROMPT("Correct username");
+            }
+            else{
+                PROMPT("Not corrrect username");
+            }
+        }
+
+
+        // gamestate 1 - choose between create and join room, only on client side
+        // gamestate 2 - check if correct joining/creating
+        // gamestate 3 - client in a room with a game - started or not, can quit
+        // gamestate 4 - the host provided the password, game is on
+
+
+        else if(gamestate == 2){ 
+
+            string tmp = buffer.substr(0, 4);
+            if (buffer.substr(0, 6) == "create") {
+                string roomname = buffer.substr(7);
+                if (!check_create_roomname(roomname)) {
+                    // heap allocated - memory needs to be free'd with 'delete'
+                    HangmanGame* gameroom = new HangmanGame(roomname);
+                    this->in_roomname = roomname;
+                    gameroom->addPlayer(fd(), this);
+                    // gameroom->setHost(this); is not necessary addPlayer to empty container handles setting the first player as the host
+                    order = gameroom->getOrder();
+                    rooms[roomname] = gameroom;
+                    gamestate = 3;
                     cout<< username << "> in gamestep: " << gamestate<<endl;
-                    showLobbies();
-                    PROMPT("Correct username! \n Join, or create a room:");
-
-                }
-                else{
-                    PROMPT("Username exists, please write a different username: ");
-                }
-
-            }
-
-
-            // gamestate 1 - choose between create and join room, only on client side
-            // gamestate 2 - check if correct joining/creating
-            // gamestate 3 - client in a room with a game - started or not, can quit
-            // gamestate 4 - the host provided the password, game is on
-
-
-            else if(gamestate == 2){ 
-                // cout << buffer.length();
-                // cout << buffer <<endl;
-                string tmp = buffer.substr(0, 4);
-                if (buffer.substr(0, 6) == "create") {
-                    string roomname = buffer.substr(7);
-                    if (!check_create_roomname(roomname)) {
-                        // heap allocated - memory needs to be free'd with 'delete'
-                        HangmanGame* gameroom = new HangmanGame(roomname);
-                        this->in_roomname = roomname;
-                        gameroom->addPlayer(fd(), this);
-                        // gameroom->setHost(this); is not necessary addPlayer to empty container handles setting the first player as the host
-                        order = gameroom->getOrder();
-                        rooms[roomname] = gameroom;
-                        gamestate = 3;
-                        cout<< username << "> in gamestep: " << gamestate<<endl;
-                        PROMPT("roomname created\n");
-
-
-                        
-                    } else {
-                        PROMPT("This roomname already exists, you can join it\n");
-                        showLobbies();
-                        
-                    }
-
-
-                } else if (buffer.substr(0, 4) == "join") {
-                    std::string roomname = buffer.substr(5);
-                    cout << username <<"Attempting to join room: "<<roomname << endl;
-                    if (check_join_roomname(roomname)) {
-                        
-                        auto it = rooms.find(roomname);
-                        auto &gameroom = it->second;
-                        gameroom->addPlayer(fd(), this); // add player at the same time - sets the creator of the room as the host
-                        
-                     
-                        in_roomname =roomname;
-                        cout << username << "> in gamestep: " << gamestate<<endl;
-                        PROMPT("Joined room sucessfully!\n PRESS QUIT: ");
-                        
-                        
-                        // show people in the room
-                        gameroom->showPeopleInGame();
-
-                        // joined a game that's already on 
-                        if(rooms[in_roomname]->getGameStatus()){
-                            gamestate = 4;
-                            rooms[in_roomname]->printGameWhenJoining(fd());
-                        }
-
-                        // game hasnt started, wait for players
-                        else{
-                            gamestate = 3;
-                        }
-                        
-
+                    PROMPT("Correct create roomname");
+                    gameroom->showPeopleInGame();
                     
-
-                    } else {
-                        PROMPT("The room doesnt exist, join or create a different room:");
-                        showLobbies();
-
-                    }
-
-                }
-                else{
-                    PROMPT("Wrong input, Join, or create a room: ");
-                    showLobbies();
-                } 
-
-            
-            }
-
-            // gamestate - players are in a room waiting for the host to start the game by choosing number of rounds and setting a password 
-            else if(gamestate == 3){ 
-
-                if (buffer.substr(0, 4) == "quit") {
-                    // remove this player from the gameroom, 
-                    // change host if the host left 
-                    // and check how many players are in the game, if less than 1 player - delete room 
-
-                    quit_game();  
-                    showLobbies();
-                    PROMPT("Join, or create a room: ");
-                    // clientLeftTheGameInfo();
+                } else {
+                    PROMPT("Not correct create roomname");
+                    // showLobbies();
+                    
                 }
 
-                else if (buffer.substr(0, 5) == "round" && amihost && !password_setter){
-                    std::string rounds= buffer.substr(6,1); // assuming single digit round number
-                    int round_number;
 
-                    if ( !(rounds.empty()) && isdigit(rounds[0]) )
-                    {
-                        round_number = std::stoi(rounds);
-                        cout << "Round num:" << round_number <<" endhere" <<endl;
-                        rooms[in_roomname]->setRoundNumber(round_number);
-                        PROMPT("Round number set\n Provide password next\n");
+            } else if (buffer.substr(0, 4) == "join") {
+                std::string roomname = buffer.substr(5);
+                cout << username <<"Attempting to join room: "<<roomname << endl;
+                if (check_join_roomname(roomname)) {
+                    
+                    auto it = rooms.find(roomname);
+                    auto &gameroom = it->second;
+                    gameroom->addPlayer(fd(), this); // add player at the same time - sets the creator of the room as the host
+                    
+                    
+                    in_roomname =roomname;
+                    cout << username << "> in gamestep: " << gamestate<<endl;
+                    PROMPT("Correct join roomname");
+
+                    gameroom->showPeopleInGame();
+                    // joined a game that's already on 
+                    if(rooms[in_roomname]->getGameStatus()){
+                        gamestate = 4;
+                        // rooms[in_roomname]->printGameWhenJoining(fd());
                     }
 
+                    // game hasnt started, wait for players
                     else{
-                        PROMPT("Round number not set, provide one digit number!\n");
+                        gamestate = 3;
                     }
+                    
+                } else {
+                    PROMPT("Not correct join roomname");
+                    // showLobbies();
 
                 }
-
-                else if(buffer.substr(0, 3) == "set" && amihost){
-
-                    if(rooms[in_roomname]->getPlayerCount()>=MIN_PLAYERS_IN_GAME){    
-                       password_setter = true;
-                       rooms[in_roomname]->setPasswordSetterFd(fd());       
-                       prepare_and_set_password(buffer.substr(4));                  
-                       
-                    }
-
-                    else{
-                        PROMPT("WAIT FOR MORE PEOPLE!\n");
-                    }
-
-                } 
 
             }
-            //  GUESSING, game is on, host that set the password (password_setter doesn't participate)
-             else if(gamestate == 4 && !password_setter){
-                 if (buffer.length() <= 2){
-                    if(remaining_lives == 0){
-                        PROMPT("You're dead\n Wait for the round to be over, or quit: ");
-                    }
-                    else{
-                        rooms[in_roomname]->guess_letter(fd(), tolower(buffer[0]));
-                        // PROMPT("Guess a letter: ");
-                    }
-                 }
+        
+        }
 
-                else if(buffer.substr(0, 4) == "quit") {
-                    quit_game();                 
-                    showLobbies();
-                    PROMPT("Join, or create a room: ");
-                    // clientLeftTheGameInfo();
+        // gamestate - players are in a room waiting for the host to start the game by choosing number of rounds and setting a password 
+        else if(gamestate == 3){ 
+
+            if (buffer.substr(0, 4) == "quit") {
+                // remove this player from the gameroom, 
+                // change host if the host left 
+                // and check how many players are in the game, if less than 1 player - delete room 
+
+                quit_game();
+                PROMPT("Correct quit");
+            }
+
+            else if (buffer.substr(0, 5) == "round" && amihost && !password_setter){
+                std::string rounds= buffer.substr(6,1); // assuming single digit round number
+                int round_number;
+
+                if ( !(rounds.empty()) && isdigit(rounds[0]) )
+                {
+                    round_number = std::stoi(rounds);
+                    cout << "Round num:" << round_number <<" endhere" <<endl;
+                    rooms[in_roomname]->setRoundNumber(round_number);
+                    PROMPT("Correct round");
                 }
+
                 else{
-                    PROMPT("Not a letter or a quit keyword!\n");
+                    PROMPT("Not correct round");
                 }
 
+            }
 
-                // PROMPT("Guess a letter: ");
-             }
+            else if(buffer.substr(0, 3) == "set" && amihost){
 
+                if(rooms[in_roomname]->getPlayerCount()>=MIN_PLAYERS_IN_GAME){    
+                    password_setter = true;
+                    rooms[in_roomname]->setPasswordSetterFd(fd());       
+                    prepare_and_set_password(buffer.substr(4));                  
+                    
+                }
 
+                else{
+                    PROMPT("WAIT FOR MORE PEOPLE!\n");
+                }
+
+            } 
 
         }
-        else
+        //  GUESSING, game is on, host that set the password (password_setter doesn't participate)
+        else if(gamestate == 4 && !password_setter){
+            if (buffer.length() <= 2){
+                if(remaining_lives == 0){
+                    PROMPT("You're dead\n Wait for the round to be over, or quit: ");
+                }
+                else{
+                    rooms[in_roomname]->guess_letter(fd(), tolower(buffer[0]));
+                    // PROMPT("Guess a letter: ");
+                }
+            }
+
+            else if(buffer.substr(0, 4) == "quit") {
+                quit_game();                 
+                // showLobbies();
+                // PROMPT("Join, or create a room: ");
+                // clientLeftTheGameInfo();
+            }
+            else{
+                PROMPT("Not a letter or a quit keyword!\n");
+            }
+
+        }
+        else {
             events |= EPOLLERR;
+        }
+            
     }
     if(events & ~EPOLLIN){
         // remove player from room here
@@ -223,9 +200,13 @@ bool Client::check_player_joining_game(string buf){
 }
 
 void Client::write(const char * buffer, int count){
-    if(count != ::write(_fd, buffer, count))
+    string s = packMessage(buffer);
+    const char * packed_message = s.c_str();
+
+    cout << "PACKED MESSAGE " << packed_message << " " << strlen(packed_message) << endl;
+    if(count + 3 != ::write(_fd, packed_message, strlen(packed_message))) {
         remove();
-    
+    }        
 }
 
 
