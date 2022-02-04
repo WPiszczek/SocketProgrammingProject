@@ -32,13 +32,22 @@ LIGHT_GRAY = (192, 192, 192)
 # rectangles
 createRoomRect = pygame.Rect(WIDTH / 4 - 200, 200, 400, 500)
 joinRoomRect = pygame.Rect(3*WIDTH / 4 - 200, 200, 400, 500)
+quitRoomRect = pygame.Rect(1000, 100, 150, 60)
 
 # text variables
 usernameText = ''
 roomnameText = ''
+roundNumberText = ''
 
 # gamestate
 gamestate = 0
+
+# flags and consts
+AMIHOST = False
+NUMBERS = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9]
+
+# lists
+peopleInTheRoom = []
 
 
 def drawUsernameWindow(response):
@@ -76,7 +85,7 @@ def drawLobby():
     createRoomText = LETTER_FONT.render("Utwórz nowy pokój", True, BLACK)
     win.blit(createRoomText, (WIDTH / 4 - createRoomText.get_width() / 2, 450 - createRoomText.get_height() / 2))
     joinRoomText = LETTER_FONT.render("Dołącz do pokoju", True, BLACK)
-    win.blit(joinRoomText, (3*WIDTH / 4 - joinRoomText.get_width() / 2, 450 - createRoomText.get_height() / 2))
+    win.blit(joinRoomText, (3*WIDTH / 4 - joinRoomText.get_width() / 2, 450 - joinRoomText.get_height() / 2))
 
     pygame.display.update()
 
@@ -99,30 +108,66 @@ def drawCreateJoinRoom(response):
     responseText = LETTER_FONT.render(response, True, RED)
     win.blit(responseText, (WIDTH / 2 - responseText.get_width() / 2, 400))
 
+    pygame.draw.rect(win, RED, quitRoomRect)
+    quitRoomText = LETTER_FONT.render("Cofnij", True, WHITE)
+    win.blit(quitRoomText, (quitRoomRect.centerx - quitRoomText.get_width() / 2, quitRoomRect.centery - quitRoomText.get_height() / 2))
+
+    pygame.display.update()
+
+
+def drawGameRoom(roomname, players):
+    win.fill(WHITE)
+
+    titleText = TITLE_FONT.render("WISIELEC", True, BLACK)
+    win.blit(titleText, (WIDTH / 2 - titleText.get_width() / 2, 20))
+
+    roomnameText = LETTER_FONT.render(roomname, True, BLACK)
+    win.blit(roomnameText, (WIDTH / 2 - roomnameText.get_width() / 2, 100))
+
+    if AMIHOST:
+        roundNumberLabelText = LETTER_FONT.render("Podaj liczbę rund, przez które będziesz hostem:", True, BLACK)
+        win.blit(roundNumberLabelText, (WIDTH / 2 - roundNumberLabelText.get_width() / 2, 200))
+
+        inputRect = pygame.Rect(WIDTH / 2 - 200, 300, 400, 70)
+
+        pygame.draw.rect(win, BLACK, inputRect, 5)
+        inputSurface = LETTER_FONT.render(roundNumberText, True, BLACK)
+        win.blit(inputSurface, (inputRect.x + 5, inputRect.y + 5))
+
+    for i, player in enumerate(players):
+        playerText = LETTER_FONT.render(player, True, BLACK) if player != usernameText else LETTER_FONT.render(player, True, RED)
+        win.blit(playerText, (WIDTH / 2 - playerText.get_width() / 2, 400 + i * 80))
+
+    pygame.draw.rect(win, RED, quitRoomRect)
+    quitRoomText = LETTER_FONT.render("Wyjdź", True, WHITE)
+    win.blit(quitRoomText, (quitRoomRect.centerx - quitRoomText.get_width() / 2, quitRoomRect.centery - quitRoomText.get_height() / 2))
+
     pygame.display.update()
 
 
 def sendUsername(username):
     global gamestate
-    client.send(bytes(username + '\0', 'ascii'))
+    send(client, f"{username}")
 
-    response = client.recv(1024).decode('ascii')
-    print(response)
+    response = receive(client)
 
     if response == "Correct username":
         gamestate = 1
-        return "Correct username"
+        return "Poprawna nazwa użytkownika"
     else:
-        return "Username zajęty"
+        return "Nazwa użytkownika zajęta"
 
 
 # action - create or join
 def sendRoomname(roomname, action):
-    global gamestate
-    client.send(bytes(f"{action} {roomname}\0", 'ascii'))
-
-    response = client.recv(1024).decode('ascii')
+    global gamestate, AMIHOST
+    send(client, f"{action} {roomname}")
+    response = receive(client)
     print(response)
+
+    if response == "Host":
+        AMIHOST = True
+        response = receive(client)
 
     if response in ["Correct create roomname", "Correct join roomname"]:
         gamestate = 3
@@ -131,8 +176,23 @@ def sendRoomname(roomname, action):
         return "Nazwa pokoju jest już zajęta" if action == 'create' else "Niepoprawna nazwa pokoju"
 
 
+def sendQuit():
+    global gamestate, AMIHOST
+
+    send(client, "quit")
+    AMIHOST = False
+    gamestate = 1
+
+    response = receive(client)
+    return
+
+
+def sendRoundNumber(roundNumber):
+    return NotImplemented
+
+
 def main():
-    global usernameText, roomnameText, gamestate
+    global usernameText, roomnameText, roundNumberText, gamestate, AMIHOST, peopleInTheRoom
 
     FPS = 60
     clock = pygame.time.Clock()
@@ -140,11 +200,17 @@ def main():
     response = ''
     createOrJoin = ''
 
-    if client.recv(1024).decode('ascii') == 'Gamestate 0':
+    if receive(client) == 'Gamestate 0':
         gamestate = 0
+
 
     while True:
         clock.tick(FPS)
+
+        serverMessage = receive(client)
+
+        if serverMessage == "Host":
+            AMIHOST = True
 
         if gamestate == 0:
             for event in pygame.event.get():
@@ -191,6 +257,11 @@ def main():
                     pygame.quit()
                     sys.exit()
 
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if quitRoomRect.collidepoint(event.pos):
+                        sendQuit()
+                        response = ''
+
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         pygame.quit()
@@ -207,12 +278,42 @@ def main():
 
             drawCreateJoinRoom(response)
 
+        elif gamestate == 3:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if quitRoomRect.collidepoint(event.pos):
+                        sendQuit()
+                        response = ''
+
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        sys.exit()
+
+                    if AMIHOST:
+                        if event.key == pygame.K_BACKSPACE:
+                            roundNumberText = roundNumberText[:-1]
+                        elif event.key == pygame.K_RETURN:
+                            response = sendRoundNumber(roundNumberText)
+                        elif len(roundNumberText) > 1:
+                            pass
+                        elif event.key in NUMBERS:
+                            roundNumberText += event.unicode
+
+            if serverMessage[:15] == "PeopleInTheRoom":
+                peopleInTheRoom = getPeopleInTheRoom(serverMessage[16:])
+
+            drawGameRoom(roomnameText, peopleInTheRoom)
+
         else:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
-                    # run = False
 
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
