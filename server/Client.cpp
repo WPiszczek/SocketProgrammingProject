@@ -43,12 +43,10 @@ void Client::handleEvent(uint32_t events) {
             }
         }
 
-
         // gamestate 1 - choose between create and join room, only on client side
         // gamestate 2 - check if correct joining/creating
         // gamestate 3 - client in a room with a game - started or not, can quit
         // gamestate 4 - the host provided the password, game is on
-
 
         else if(gamestate == 2){ 
 
@@ -60,7 +58,6 @@ void Client::handleEvent(uint32_t events) {
                     HangmanGame* gameroom = new HangmanGame(roomname);
                     this->in_roomname = roomname;
                     gameroom->addPlayer(fd(), this);
-                    // gameroom->setHost(this); is not necessary addPlayer to empty container handles setting the first player as the host
                     order = gameroom->getOrder();
                     rooms[roomname] = gameroom;
                     gamestate = 3;
@@ -69,9 +66,7 @@ void Client::handleEvent(uint32_t events) {
                     gameroom->showPeopleInGame();
                     
                 } else {
-                    PROMPT("Not correct create roomname");
-                    // showLobbies();
-                    
+                    PROMPT("Not correct create roomname");                    
                 }
 
 
@@ -93,7 +88,6 @@ void Client::handleEvent(uint32_t events) {
                     // joined a game that's already on 
                     if(rooms[in_roomname]->getGameStatus()){
                         gamestate = 4;
-                        // rooms[in_roomname]->printGameWhenJoining(fd());
                     }
 
                     // game hasnt started, wait for players
@@ -124,7 +118,7 @@ void Client::handleEvent(uint32_t events) {
             }
 
             else if (buffer.substr(0, 5) == "round" && amihost && !password_setter){
-                std::string rounds= buffer.substr(6,1); // assuming single digit round number
+                std::string rounds = buffer.substr(6,1); // assuming single digit round number
                 int round_number;
 
                 if ( !(rounds.empty()) && isdigit(rounds[0]) )
@@ -132,11 +126,10 @@ void Client::handleEvent(uint32_t events) {
                     round_number = std::stoi(rounds);
                     cout << "Round num:" << round_number <<" endhere" <<endl;
                     rooms[in_roomname]->setRoundNumber(round_number);
-                    PROMPT("Correct round");
+                    PROMPT("Correct round number");
                 }
-
                 else{
-                    PROMPT("Not correct round");
+                    PROMPT("Not correct round number");
                 }
 
             }
@@ -146,12 +139,11 @@ void Client::handleEvent(uint32_t events) {
                 if(rooms[in_roomname]->getPlayerCount()>=MIN_PLAYERS_IN_GAME){    
                     password_setter = true;
                     rooms[in_roomname]->setPasswordSetterFd(fd());       
-                    prepare_and_set_password(buffer.substr(4));                  
-                    
+                    prepare_and_set_password(buffer.substr(4));
                 }
 
                 else{
-                    PROMPT("WAIT FOR MORE PEOPLE!\n");
+                    PROMPT("Wait for more people");
                 }
 
             } 
@@ -159,21 +151,18 @@ void Client::handleEvent(uint32_t events) {
         }
         //  GUESSING, game is on, host that set the password (password_setter doesn't participate)
         else if(gamestate == 4 && !password_setter){
-            if (buffer.length() <= 2){
+            if (buffer.substr(0, 6) == "letter"){
                 if(remaining_lives == 0){
-                    PROMPT("You're dead\n Wait for the round to be over, or quit: ");
+                    PROMPT("Dead");
                 }
                 else{
-                    rooms[in_roomname]->guess_letter(fd(), tolower(buffer[0]));
-                    // PROMPT("Guess a letter: ");
+                    
+                    rooms[in_roomname]->guess_letter(fd(), tolower(buffer[7]));
                 }
             }
 
             else if(buffer.substr(0, 4) == "quit") {
-                quit_game();                 
-                // showLobbies();
-                // PROMPT("Join, or create a room: ");
-                // clientLeftTheGameInfo();
+                quit_game();
             }
             else{
                 PROMPT("Not a letter or a quit keyword!\n");
@@ -221,12 +210,11 @@ void Client::remove() {
             if(it!=rooms.end()){
                 delete it->second;
                 rooms.erase(it);
-            }          
+            }
         }
         else{
             rooms[in_roomname]->removePlayer(_fd);
         }
-        
     }
     // usun klienta z listy klientow
     clients.erase(this);
@@ -343,26 +331,6 @@ void Client::showLobbies(){
     write(s.c_str(),s.length());
 }
 
-void Client::ask_nick(){
-    char buffer[256];
-    ssize_t count = read(_fd, buffer, 256);
-    bool keep_asking = true;
-    while(keep_asking){
-        char s[] = "Podaj nazwe uzytkownika: ";
-        write(s, strlen(s));
-
-        if (!check_username(s)){
-            username = s;
-            cout << "here";
-            keep_asking = false;
-        }
-        else{
-            char nazwa_istnieje[] = "Nazwa juz istnieje";
-            write(nazwa_istnieje, strlen(nazwa_istnieje));
-        }
-    }
-}
-
 void Client::setPasswordSetterStatus(bool status){
     this->password_setter = status;
 }
@@ -372,12 +340,14 @@ void Client::prepare_and_set_password(std::string new_password){
     transform(new_password.begin(), new_password.end(), new_password.begin(), ::tolower);
     HangmanGameNamespace::Password password;
     password.correct_pass = new_password;
-    password.underscore = std::string(new_password.size() - 1, '_');
-    password.num_of_letters = new_password.length()-1;
+    password.underscore = std::string(new_password.size(), '_');
+    password.num_of_letters = new_password.length();
     password.guessed_letters_correctly = 0;
-    // password.payout = calculate_password_payout(new_password);
 
     rooms[in_roomname]->setPassword(password);
+    PROMPT("Correct set");
     rooms[in_roomname]->setGameStatus(true);
+
+    rooms[in_roomname]->printGame();
 
 }

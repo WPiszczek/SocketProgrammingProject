@@ -49,7 +49,6 @@ public:
     int getRemainingLives();
     int getGamestate();
     void quit_game();
-    void ask_nick();
     void prepare_and_set_password(std::string password);
     void setPasswordSetterStatus(bool status);
 };

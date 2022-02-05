@@ -68,9 +68,7 @@ public:
     void setPassword(Password new_password);
     
     void printGame();
-    
-    void printGameWhenJoining(int clientFd);
-    
+        
     void setNewHostAfterGame();
     
     void guess_letter(int clientFd, char letter);

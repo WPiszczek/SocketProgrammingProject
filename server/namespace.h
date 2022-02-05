@@ -46,8 +46,8 @@ namespace HangmanGameNamespace {
 
 
     #define MAX_ORDER 100001
-    #define MAX_LIVES 2
-    #define MIN_PLAYERS_IN_GAME 3
+    #define MAX_LIVES 7
+    #define MIN_PLAYERS_IN_GAME 2
 
     extern std::vector<string> usernames;
     extern std::unordered_set<Client*> clients;
