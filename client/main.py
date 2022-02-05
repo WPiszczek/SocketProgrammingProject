@@ -13,15 +13,13 @@ win = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Hangman")
 
 # fonts
+SCORE_FONT = pygame.font.SysFont('comicsans', 20)
 LETTER_FONT = pygame.font.SysFont('comicsans', 40)
 WORD_FONT = pygame.font.SysFont('comicsans', 60)
 TITLE_FONT = pygame.font.SysFont('comicsans', 70)
 
 # load images
-images = []
-for i in range(8):
-    image = pygame.image.load(f"images/{i}.png")
-    images.append(image)
+images = loadImages()
 
 # colors
 WHITE = (255, 255, 255)
@@ -38,16 +36,25 @@ quitRoomRect = pygame.Rect(1000, 100, 150, 60)
 usernameText = ''
 roomnameText = ''
 roundNumberText = ''
+passwordText = ''
 
 # gamestate
 gamestate = 0
 
 # flags and consts
 AMIHOST = False
+ROUNDNUMBERSET = False
+RESULTS = False
+MIN_PLAYERS_IN_GAME = 2
 NUMBERS = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9]
+LETTERS = [pygame.K_a, pygame.K_b, pygame.K_c, pygame.K_d, pygame.K_e, pygame.K_f, pygame.K_g, pygame.K_h, pygame.K_i,
+           pygame.K_j, pygame.K_k, pygame.K_l, pygame.K_m, pygame.K_n, pygame.K_o, pygame.K_p, pygame.K_q, pygame.K_r,
+           pygame.K_s, pygame.K_t, pygame.K_u, pygame.K_v, pygame.K_w, pygame.K_x, pygame.K_y, pygame.K_z]
+ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-# lists
+# lists and dicts
 peopleInTheRoom = []
+letterRects = getLetterRects()
 
 
 def drawUsernameWindow(response):
@@ -125,18 +132,155 @@ def drawGameRoom(roomname, players):
     win.blit(roomnameText, (WIDTH / 2 - roomnameText.get_width() / 2, 100))
 
     if AMIHOST:
-        roundNumberLabelText = LETTER_FONT.render("Podaj liczbę rund, przez które będziesz hostem:", True, BLACK)
-        win.blit(roundNumberLabelText, (WIDTH / 2 - roundNumberLabelText.get_width() / 2, 200))
+        if ROUNDNUMBERSET:
+            passwordLabelText = LETTER_FONT.render("Podaj hasło do zgadywania:", True, BLACK)
+            win.blit(passwordLabelText, (WIDTH / 2 - passwordLabelText.get_width() / 2, 200))
 
-        inputRect = pygame.Rect(WIDTH / 2 - 200, 300, 400, 70)
+            inputRect = pygame.Rect(WIDTH / 2 - 200, 300, 400, 70)
 
-        pygame.draw.rect(win, BLACK, inputRect, 5)
-        inputSurface = LETTER_FONT.render(roundNumberText, True, BLACK)
-        win.blit(inputSurface, (inputRect.x + 5, inputRect.y + 5))
+            pygame.draw.rect(win, BLACK, inputRect, 5)
+            inputSurface = LETTER_FONT.render(passwordText, True, BLACK)
+            win.blit(inputSurface, (inputRect.x + 5, inputRect.y + 5))
+        else:
+            roundNumberLabelText = LETTER_FONT.render("Podaj liczbę rund, przez które będziesz hostem:", True, BLACK)
+            win.blit(roundNumberLabelText, (WIDTH / 2 - roundNumberLabelText.get_width() / 2, 200))
 
+            inputRect = pygame.Rect(WIDTH / 2 - 200, 300, 400, 70)
+
+            pygame.draw.rect(win, BLACK, inputRect, 5)
+            inputSurface = LETTER_FONT.render(roundNumberText, True, BLACK)
+            win.blit(inputSurface, (inputRect.x + 5, inputRect.y + 5))
+
+        if len(peopleInTheRoom) < MIN_PLAYERS_IN_GAME:
+            messageText = LETTER_FONT.render("Poczekaj na więcej graczy", True, RED)
+            win.blit(messageText, (WIDTH / 2 - messageText.get_width() / 2, 400))
+
+    else:
+        messageText = LETTER_FONT.render("Oczekiwanie na rozpoczęcie gry...", True, BLACK)
+        win.blit(messageText, (WIDTH / 2 - messageText.get_width() / 2, 200))
+
+    playersInTheRoomText = LETTER_FONT.render("GRACZE W POKOJU:", True, BLACK)
+    win.blit(playersInTheRoomText, (WIDTH / 2 - playersInTheRoomText.get_width() / 2, 500))
+
+    newWidth = 200
+    height = 600
     for i, player in enumerate(players):
-        playerText = LETTER_FONT.render(player, True, BLACK) if player != usernameText else LETTER_FONT.render(player, True, RED)
-        win.blit(playerText, (WIDTH / 2 - playerText.get_width() / 2, 400 + i * 80))
+        if player.name != usernameText:
+            playerText = LETTER_FONT.render(player.name, True, BLACK)
+        else:
+            playerText = LETTER_FONT.render(player.name, True, RED)
+        if newWidth + playerText.get_width() > 900:
+            height += 80
+            newWidth = 200
+        win.blit(playerText, (newWidth, height))
+        newWidth += playerText.get_width() + 50
+
+    pygame.draw.rect(win, RED, quitRoomRect)
+    quitRoomText = LETTER_FONT.render("Wyjdź", True, WHITE)
+    win.blit(quitRoomText, (quitRoomRect.centerx - quitRoomText.get_width() / 2, quitRoomRect.centery - quitRoomText.get_height() / 2))
+
+    pygame.display.update()
+
+
+def drawGame(players, password):
+    win.fill(WHITE)
+
+    titleText = TITLE_FONT.render("WISIELEC", True, BLACK)
+    win.blit(titleText, (WIDTH / 2 - titleText.get_width() / 2, 20))
+
+    passwordText = WORD_FONT.render(spaceBetweenLetters(password), True, BLACK)
+    win.blit(passwordText, (WIDTH / 2 - passwordText.get_width() / 2, 200))
+
+    newWidth = 100
+    height = 300
+    for i, player in enumerate(players):
+        if player.isHost:
+            continue
+
+        if player.name != usernameText:
+            playerNameText = SCORE_FONT.render(player.name, True, BLACK)
+            playerScoreText = SCORE_FONT.render(f"{player.score} pkt", True, BLACK)
+        else:
+            playerNameText = SCORE_FONT.render(player.name, True, RED)
+            playerScoreText = SCORE_FONT.render(f"{player.score} pkt", True, RED)
+        if newWidth + playerNameText.get_width() > 1000:
+            height += 130
+            newWidth = 100
+        win.blit(playerNameText, (newWidth, height))
+        win.blit(playerScoreText, (newWidth, height + 30))
+        win.blit(images[7 - player.lives], (newWidth, height + 60))
+        newWidth += playerNameText.get_width() + 150
+
+    for i, letter in enumerate(ALPHABET):
+        letterRect = letterRects[i]
+        x = letterRect.x + 30
+        y = letterRect.y + 30
+        letterText = WORD_FONT.render(letter, True, BLACK)
+
+        pygame.draw.rect(win, BLACK, letterRect, 5)
+        win.blit(letterText, (x - letterText.get_width() / 2, y - letterText.get_height() / 2))
+
+    pygame.draw.rect(win, RED, quitRoomRect)
+    quitRoomText = LETTER_FONT.render("Wyjdź", True, WHITE)
+    win.blit(quitRoomText, (quitRoomRect.centerx - quitRoomText.get_width() / 2, quitRoomRect.centery - quitRoomText.get_height() / 2))
+
+    pygame.display.update()
+
+
+def drawResults(players, previousPassword):
+    global passwordText
+    win.fill(WHITE)
+
+    titleText = TITLE_FONT.render("WISIELEC", True, BLACK)
+    win.blit(titleText, (WIDTH / 2 - titleText.get_width() / 2, 20))
+
+    previousPasswordText = LETTER_FONT.render(f"Hasło to {previousPassword}", True, BLACK)
+    win.blit(previousPasswordText, (WIDTH / 2 - previousPasswordText.get_width() / 2, 100))
+
+    if AMIHOST:
+        if ROUNDNUMBERSET:
+            passwordLabelText = LETTER_FONT.render("Podaj nowe hasło do zgadywania:", True, BLACK)
+            win.blit(passwordLabelText, (WIDTH / 2 - passwordLabelText.get_width() / 2, 200))
+
+            inputRect = pygame.Rect(WIDTH / 2 - 200, 300, 400, 70)
+
+            pygame.draw.rect(win, BLACK, inputRect, 5)
+            inputSurface = LETTER_FONT.render(passwordText, True, BLACK)
+            win.blit(inputSurface, (inputRect.x + 5, inputRect.y + 5))
+        else:
+            roundNumberLabelText = LETTER_FONT.render("Podaj liczbę rund, przez które będziesz hostem:", True, BLACK)
+            win.blit(roundNumberLabelText, (WIDTH / 2 - roundNumberLabelText.get_width() / 2, 200))
+
+            inputRect = pygame.Rect(WIDTH / 2 - 200, 300, 400, 70)
+
+            pygame.draw.rect(win, BLACK, inputRect, 5)
+            inputSurface = LETTER_FONT.render(roundNumberText, True, BLACK)
+            win.blit(inputSurface, (inputRect.x + 5, inputRect.y + 5))
+
+        if len(peopleInTheRoom) < MIN_PLAYERS_IN_GAME:
+            messageText = LETTER_FONT.render("Poczekaj na więcej graczy", True, RED)
+            win.blit(messageText, (WIDTH / 2 - messageText.get_width() / 2, 400))
+
+    else:
+        messageText = LETTER_FONT.render("Oczekiwanie na rozpoczęcie gry...", True, BLACK)
+        win.blit(messageText, (WIDTH / 2 - messageText.get_width() / 2, 200))
+
+    resultsText = LETTER_FONT.render("WYNIKI:", True, BLACK)
+    win.blit(resultsText, (WIDTH / 2 - resultsText.get_width() / 2, 500))
+
+    newWidth = 200
+    height = 600
+    for i, player in enumerate(players):
+        playerString = f"{player.name} - {player.score} punktów" if not player.isHost else f"{player.name} - host"
+        if player.name != usernameText:
+            playerText = LETTER_FONT.render(playerString, True, BLACK)
+        else:
+            playerText = LETTER_FONT.render(playerString, True, RED)
+        if newWidth + playerText.get_width() > 900:
+            height += 80
+            newWidth = 200
+        win.blit(playerText, (newWidth, height))
+        newWidth += playerText.get_width() + 50
 
     pygame.draw.rect(win, RED, quitRoomRect)
     quitRoomText = LETTER_FONT.render("Wyjdź", True, WHITE)
@@ -177,10 +321,11 @@ def sendRoomname(roomname, action):
 
 
 def sendQuit():
-    global gamestate, AMIHOST
+    global gamestate, AMIHOST, ROUNDNUMBERSET
 
     send(client, "quit")
     AMIHOST = False
+    ROUNDNUMBERSET = False
     gamestate = 1
 
     response = receive(client)
@@ -188,11 +333,42 @@ def sendQuit():
 
 
 def sendRoundNumber(roundNumber):
-    return NotImplemented
+    global ROUNDNUMBERSET
+    send(client, f"round {roundNumber}")
+    response = receive(client)
+
+    if response == "Correct round number":
+        ROUNDNUMBERSET = True
+        return response
+    else:
+        return "Niepoprawna liczba rund"
+
+
+def sendPassword(password):
+    global gamestate
+    print(password)
+    send(client, f"set {password}")
+    response = receive(client)
+
+    if response == "Correct set":
+        gamestate = 4
+        return response
+    elif response == "Wait for more people":
+        gamestate = 3
+        return "Poczekaj na więcej graczy"
+    else:
+        print(response)
+        return response
+
+
+def sendLetter(letter):
+    send(client, f"letter {letter}")
+    return
 
 
 def main():
-    global usernameText, roomnameText, roundNumberText, gamestate, AMIHOST, peopleInTheRoom
+    global usernameText, roomnameText, roundNumberText, passwordText
+    global gamestate, AMIHOST, ROUNDNUMBERSET, RESULTS, peopleInTheRoom
 
     FPS = 60
     clock = pygame.time.Clock()
@@ -200,9 +376,12 @@ def main():
     response = ''
     createOrJoin = ''
 
+    peopleResults = []
+    password1 = ''
+    previousPassword = ''
+
     if receive(client) == 'Gamestate 0':
         gamestate = 0
-
 
     while True:
         clock.tick(FPS)
@@ -211,6 +390,10 @@ def main():
 
         if serverMessage == "Host":
             AMIHOST = True
+            ROUNDNUMBERSET = False
+            password1 = ''
+        elif serverMessage[:9] == 'Gamestate':
+            gamestate = int(serverMessage[10:])
 
         if gamestate == 0:
             for event in pygame.event.get():
@@ -227,9 +410,9 @@ def main():
                         usernameText = usernameText[:-1]
                     elif event.key == pygame.K_RETURN:
                         response = sendUsername(usernameText)
-                    elif len(usernameText) > 20:
+                    elif len(usernameText) >= 15:
                         pass
-                    else:
+                    elif event.unicode in ALPHABET or event.unicode in ALPHABET.lower() or event.unicode == ' ':
                         usernameText += event.unicode
 
             drawUsernameWindow(response)
@@ -271,9 +454,9 @@ def main():
                         roomnameText = roomnameText[:-1]
                     elif event.key == pygame.K_RETURN:
                         response = sendRoomname(roomnameText, createOrJoin)
-                    elif len(roomnameText) > 20:
+                    elif len(roomnameText) >= 15:
                         pass
-                    else:
+                    elif event.unicode in ALPHABET or event.unicode in ALPHABET.lower() or event.unicode == ' ':
                         roomnameText += event.unicode
 
             drawCreateJoinRoom(response)
@@ -295,19 +478,64 @@ def main():
                         sys.exit()
 
                     if AMIHOST:
-                        if event.key == pygame.K_BACKSPACE:
-                            roundNumberText = roundNumberText[:-1]
-                        elif event.key == pygame.K_RETURN:
-                            response = sendRoundNumber(roundNumberText)
-                        elif len(roundNumberText) > 1:
-                            pass
-                        elif event.key in NUMBERS:
-                            roundNumberText += event.unicode
+                        if ROUNDNUMBERSET:
+                            if event.key == pygame.K_BACKSPACE:
+                                passwordText = passwordText[:-1]
+                            elif event.key == pygame.K_RETURN and len(peopleInTheRoom) >= MIN_PLAYERS_IN_GAME:
+                                response = sendPassword(passwordText)
+                                gamestate = 4
+                            elif len(passwordText) >= 15:
+                                pass
+                            elif event.unicode in ALPHABET or event.unicode in ALPHABET.lower():
+                                passwordText += event.unicode.upper()
+                        else:
+                            if event.key == pygame.K_BACKSPACE:
+                                roundNumberText = roundNumberText[:-1]
+                            elif event.key == pygame.K_RETURN:
+                                response = sendRoundNumber(roundNumberText)
+                            elif len(roundNumberText) >= 1:
+                                pass
+                            elif event.key in NUMBERS:
+                                roundNumberText += event.unicode
 
             if serverMessage[:15] == "PeopleInTheRoom":
                 peopleInTheRoom = getPeopleInTheRoom(serverMessage[16:])
 
-            drawGameRoom(roomnameText, peopleInTheRoom)
+            if RESULTS:
+                drawResults(peopleResults, previousPassword)
+            else:
+                drawGameRoom(roomnameText, peopleInTheRoom)
+
+        elif gamestate == 4:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if quitRoomRect.collidepoint(event.pos):
+                        sendQuit()
+                        response = ''
+
+                    if not AMIHOST:
+                        for i, rect in enumerate(letterRects):
+                            if rect.collidepoint(event.pos):
+                                sendLetter(ALPHABET[i])
+
+            if serverMessage[:6] == "Scores":
+                _, _, peopleInTheRoom, password1 = handleScores(serverMessage[7:])
+
+            elif serverMessage[:7] == "Results":
+                _, _, peopleResults, previousPassword = handleResults(serverMessage[8:])
+                password1 = ''
+                gamestate = 3
+                RESULTS = True
+
+            elif serverMessage == "Game over":
+                AMIHOST = False
+                password1 = ''
+
+            drawGame(peopleInTheRoom, password1)
 
         else:
             for event in pygame.event.get():
