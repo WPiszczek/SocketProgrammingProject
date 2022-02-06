@@ -5,6 +5,7 @@
 Serwer należy zbudować przez cmake i uruchomić plik wykonywalny Hangman, który pojawi się w katalogu *server*. Argumentem programu jest port.
 
 Klienta można uruchomić w katalogu *client* jako program pythona, np. `python main.py`. Adres IP i port serwera można zmienić w pliku config.txt. Wymagana jest biblioteka pygame, którą można zainstalować np. przez polecenie `pip install pygame`.
+
 ---
 ## Wisielec przez sieć
 
