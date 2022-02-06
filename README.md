@@ -1,6 +1,13 @@
-# Projekt z Sieci Komputerowych 2
+# Projekt z Sieci Komputerowych 2 - Wisielec przez sieć
 ---
-## Wisielec przez sieć
+## Uruchamianie
+
+Serwer należy zbudować przez cmake i uruchomić plik wykonywalny Hangman, który pojawi się w katalogu *server*. Argumentem programu jest port.
+
+Klienta można uruchomić w katalogu *client* jako program pythona, np. `python main.py`. Adres IP i port serwera można zmienić w pliku config.txt. Wymagana jest biblioteka pygame, którą można zainstalować np. przez polecenie `pip install pygame`.
+
+---
+## Opis projektu
 
 Gracz łączy się do serwera i wysyła swój nick (jeśli nick jest już zajęty,
 serwer prosi o podanie innego nicku).
