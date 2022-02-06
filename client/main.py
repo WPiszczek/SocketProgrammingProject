@@ -187,7 +187,6 @@ def drawGameRoom(roomname, players):
 
 
 def drawGame(players, password):
-    global roundTime
     win.fill(WHITE)
 
     titleText = TITLE_FONT.render("WISIELEC", True, BLACK)
@@ -471,7 +470,7 @@ def main():
                         response = sendRoomname(roomnameText, createOrJoin)
                     elif len(roomnameText) >= 15:
                         pass
-                    elif event.unicode in ALPHABET or event.unicode in ALPHABET.lower() or event.unicode == ' ':
+                    elif event.unicode in ALPHABET or event.unicode in ALPHABET.lower():
                         roomnameText += event.unicode
 
             drawCreateJoinRoom(response)
@@ -517,7 +516,7 @@ def main():
                 peopleInTheRoom = getPeopleInTheRoom(serverMessage[16:])
 
             if RESULTS:
-                drawResults(peopleResults, previousPassword)
+                drawResults(peopleInTheRoom, previousPassword)
             else:
                 drawGameRoom(roomnameText, peopleInTheRoom)
 
@@ -542,7 +541,7 @@ def main():
                 _, _, peopleInTheRoom, password1 = handleScores(serverMessage[7:])
 
             elif serverMessage[:7] == "Results":
-                _, _, peopleResults, previousPassword = handleResults(serverMessage[8:])
+                _, _, peopleInTheRoom, previousPassword = handleResults(serverMessage[8:])
                 password1 = ''
                 gamestate = 3
                 RESULTS = True

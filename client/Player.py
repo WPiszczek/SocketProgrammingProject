@@ -2,7 +2,7 @@ class Player:
     def __init__(self, name, isHost=False):
         self.name = name
         self.score = 0
-        self.lives = 8
+        self.lives = 7
         self.isHost = isHost
         self.disconnected = False
 
