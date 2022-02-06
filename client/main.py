@@ -548,6 +548,7 @@ def main():
             elif serverMessage == "Game over":
                 AMIHOST = False
                 password1 = ''
+                activeTime = time.time()
 
             drawGame(peopleInTheRoom, password1)
 
