@@ -40,10 +40,10 @@ passwordText = ''
 
 # gamestate
 gamestate = 0
-startRoundTime = None
-roundTime = None
 
 # flags and consts
+activeTime = 0
+
 AMIHOST = False
 ROUNDNUMBERSET = False
 RESULTS = False
@@ -187,6 +187,7 @@ def drawGameRoom(roomname, players):
 
 
 def drawGame(players, password):
+    global roundTime
     win.fill(WHITE)
 
     titleText = TITLE_FONT.render("WISIELEC", True, BLACK)
@@ -373,7 +374,7 @@ def sendLetter(letter):
 def main():
     global usernameText, roomnameText, roundNumberText, passwordText
     global gamestate, AMIHOST, ROUNDNUMBERSET, RESULTS, peopleInTheRoom
-    global roundTime, startRoundTime
+    global activeTime
 
     FPS = 60
     clock = pygame.time.Clock()
@@ -388,16 +389,15 @@ def main():
     if receive(client) == 'Gamestate 0':
         gamestate = 0
 
-    if len(peopleInTheRoom) < MIN_PLAYERS_IN_GAME:
-        RESULTS = False
-
     while True:
         clock.tick(FPS)
 
         serverMessage = receive(client)
 
-        if startRoundTime is not None and gamestate == 4 and time.time() - startRoundTime > 60:
-            send(client, "timeout")
+        if not AMIHOST and gamestate == 4 and activeTime != 0 and time.time() - activeTime > 30:
+            print(activeTime)
+            sendQuit()
+            response = ''
 
         if serverMessage == "Host":
             AMIHOST = True
@@ -406,7 +406,7 @@ def main():
         elif serverMessage[:9] == 'Gamestate':
             gamestate = int(serverMessage[10:])
             if gamestate == 4:
-                startRoundTime = time.time()
+                activeTime = time.time()
 
         if gamestate == 0:
             for event in pygame.event.get():
@@ -526,6 +526,7 @@ def main():
                     sys.exit()
 
                 if event.type == pygame.MOUSEBUTTONDOWN:
+                    activeTime = time.time()
                     if quitRoomRect.collidepoint(event.pos):
                         sendQuit()
                         response = ''
