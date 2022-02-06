@@ -388,6 +388,9 @@ def main():
     if receive(client) == 'Gamestate 0':
         gamestate = 0
 
+    if len(peopleInTheRoom) < MIN_PLAYERS_IN_GAME:
+        RESULTS = False
+
     while True:
         clock.tick(FPS)
 
