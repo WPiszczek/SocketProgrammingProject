@@ -402,7 +402,7 @@ def main():
         if serverMessage == "Host":
             AMIHOST = True
             ROUNDNUMBERSET = False
-            password1 = ''
+            # password1 = ''
         elif serverMessage[:9] == 'Gamestate':
             gamestate = int(serverMessage[10:])
             if gamestate == 4:
@@ -432,6 +432,8 @@ def main():
 
         elif gamestate == 1:
             response = ''
+            RESULTS = False
+            password1 = ''
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
