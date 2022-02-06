@@ -1,5 +1,5 @@
 import sys
-import pygame
+import time
 
 from utils import *
 
@@ -40,6 +40,8 @@ passwordText = ''
 
 # gamestate
 gamestate = 0
+startRoundTime = None
+roundTime = None
 
 # flags and consts
 AMIHOST = False
@@ -72,8 +74,9 @@ def drawUsernameWindow(response):
     inputSurface = LETTER_FONT.render(usernameText, True, BLACK)
     win.blit(inputSurface, (inputRect.x + 5, inputRect.y + 5))
 
-    responseText = LETTER_FONT.render(response, True, RED)
-    win.blit(responseText, (WIDTH / 2 - responseText.get_width() / 2, 400))
+    if response != "Correct username":
+        responseText = LETTER_FONT.render(response, True, RED)
+        win.blit(responseText, (WIDTH / 2 - responseText.get_width() / 2, 400))
 
     inputRect.w = max(400, inputSurface.get_width() + 10)
 
@@ -112,8 +115,9 @@ def drawCreateJoinRoom(response):
     inputSurface = LETTER_FONT.render(roomnameText, True, BLACK)
     win.blit(inputSurface, (inputRect.x + 5, inputRect.y + 5))
 
-    responseText = LETTER_FONT.render(response, True, RED)
-    win.blit(responseText, (WIDTH / 2 - responseText.get_width() / 2, 400))
+    if response not in ["Correct create roomname", "Correct join roomname"]:
+        responseText = LETTER_FONT.render(response, True, RED)
+        win.blit(responseText, (WIDTH / 2 - responseText.get_width() / 2, 400))
 
     pygame.draw.rect(win, RED, quitRoomRect)
     quitRoomText = LETTER_FONT.render("Cofnij", True, WHITE)
@@ -273,11 +277,11 @@ def drawResults(players, previousPassword):
     for i, player in enumerate(players):
         playerString = f"{player.name} - {player.score} punktów" if not player.isHost else f"{player.name} - host"
         if player.name != usernameText:
-            playerText = LETTER_FONT.render(playerString, True, BLACK)
+            playerText = SCORE_FONT.render(playerString, True, BLACK)
         else:
-            playerText = LETTER_FONT.render(playerString, True, RED)
+            playerText = SCORE_FONT.render(playerString, True, RED)
         if newWidth + playerText.get_width() > 900:
-            height += 80
+            height += 40
             newWidth = 200
         win.blit(playerText, (newWidth, height))
         newWidth += playerText.get_width() + 50
@@ -369,6 +373,7 @@ def sendLetter(letter):
 def main():
     global usernameText, roomnameText, roundNumberText, passwordText
     global gamestate, AMIHOST, ROUNDNUMBERSET, RESULTS, peopleInTheRoom
+    global roundTime, startRoundTime
 
     FPS = 60
     clock = pygame.time.Clock()
@@ -388,12 +393,17 @@ def main():
 
         serverMessage = receive(client)
 
+        if startRoundTime is not None and gamestate == 4 and time.time() - startRoundTime > 60:
+            send(client, "timeout")
+
         if serverMessage == "Host":
             AMIHOST = True
             ROUNDNUMBERSET = False
             password1 = ''
         elif serverMessage[:9] == 'Gamestate':
             gamestate = int(serverMessage[10:])
+            if gamestate == 4:
+                startRoundTime = time.time()
 
         if gamestate == 0:
             for event in pygame.event.get():
