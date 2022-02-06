@@ -199,10 +199,8 @@ void HangmanGame::printGame(){
             s.append(to_string(player->getScore()));
             s.append(";lives;");
             s.append(to_string(player->getRemainingLives()));
-            s.append(";"); 
-
+            s.append(";");
         }
-
         it++;          
     }
 

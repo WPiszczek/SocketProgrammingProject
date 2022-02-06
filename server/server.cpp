@@ -1,4 +1,3 @@
-// #include "namespace.h"
 #include "Client.h"
 
 using namespace HangmanGameNamespace;
