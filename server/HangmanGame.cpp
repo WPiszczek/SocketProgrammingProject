@@ -94,6 +94,15 @@ void HangmanGame::removePlayer(int clientFd){
             it++;            
         }
         setHost(host_candidate);
+        is_on = false;
+        
+        auto it2 = players_in_game.begin();
+        while(it2!=players_in_game.end()){   
+            it2->second->setGamestate(3);      
+            it2++;
+        }
+
+        sendToAll(std::string("Gamestate 3"));
     }
 
     // save player's round result
@@ -242,9 +251,7 @@ void HangmanGame::setNewHostAfterGame(){
                         
                     }
                 }
-                
                 it2++;
-                
             }
         }
         players_in_game[password_setter_fd]->setPasswordSetterStatus(false);
@@ -346,16 +353,16 @@ std::string HangmanGame::roundResults(){
         it++;          
     }
 
-    s.append("Password;");
-    s.append(password.correct_pass);
-    s.append(";");
-
     auto it2 = leavers_round_results.begin();
     while(it2!=leavers_round_results.end()){
         s.append(it2->second);
         it2++;          
     }
     
+    s.append("Password;");
+    s.append(password.correct_pass);
+    s.append(";");
+
     game_results.insert(std::pair<int, std::string>(current_round_number, s));
 
     return s;

@@ -88,6 +88,8 @@ void Client::handleEvent(uint32_t events) {
                     // joined a game that's already on 
                     if(rooms[in_roomname]->getGameStatus()){
                         gamestate = 4;
+                        PROMPT("Gamestate 4");
+                        rooms[in_roomname]->printGame();
                     }
 
                     // game hasnt started, wait for players
@@ -150,8 +152,8 @@ void Client::handleEvent(uint32_t events) {
 
         }
         //  GUESSING, game is on, host that set the password (password_setter doesn't participate)
-        else if(gamestate == 4 && !password_setter){
-            if (buffer.substr(0, 6) == "letter"){
+        else if(gamestate == 4){
+            if (!password_setter && buffer.substr(0, 6) == "letter"){
                 if(remaining_lives == 0){
                     PROMPT("Dead");
                 }
@@ -162,6 +164,7 @@ void Client::handleEvent(uint32_t events) {
 
             else if(buffer.substr(0, 4) == "quit") {
                 quit_game();
+                PROMPT("Correct quit");
             }
             else{
                 PROMPT("Not a letter or a quit keyword!\n");
@@ -193,7 +196,7 @@ void Client::write(const char * buffer, int count){
 
     cout << "PACKED MESSAGE " << packed_message << " " << strlen(packed_message) << endl;
     if(count + 3 != ::write(_fd, packed_message, strlen(packed_message))) {
-        remove();
+        cout << "WRITE ERR" << endl;
     }        
 }
 
@@ -279,8 +282,6 @@ void Client::quit_game(){
     if(amihost){
         cout << username << " - host wants to quit the lobby"<< endl;
         int playerCount = rooms[in_roomname]->getPlayerCount();
-        // cout << playerCount << endl;
-
 
         // if hosts leaves and the room is almost empty -> delete the game
         if(playerCount <= 1){
@@ -288,8 +289,7 @@ void Client::quit_game(){
             cout << it->first;
             if(it!=rooms.end()){
                 delete it->second;
-                rooms.erase(it);
-                
+                rooms.erase(it);        
             }          
         }
 
@@ -303,9 +303,10 @@ void Client::quit_game(){
             rooms[in_roomname]->showPeopleInGame();
 
         }
-            amihost = false;
+        amihost = false;
     }  
     else{
+        cout << "not host " << endl;
         rooms[in_roomname]->removePlayer(fd());
         rooms[in_roomname]->showPeopleInGame();
     }
