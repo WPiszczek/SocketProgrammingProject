@@ -59,8 +59,3 @@ int main(int argc, char ** argv){
         ((Handler*)ee.data.ptr)->handleEvent(ee.events);
     }
 }
-
-
-
-//////////////////////////////////////////////////////////////////////////////////////
-

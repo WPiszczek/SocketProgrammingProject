@@ -156,7 +156,6 @@ void Client::handleEvent(uint32_t events) {
                     PROMPT("Dead");
                 }
                 else{
-                    
                     rooms[in_roomname]->guess_letter(fd(), tolower(buffer[7]));
                 }
             }
@@ -319,16 +318,6 @@ void Client::quit_game(){
     score = 0;
     remaining_lives = MAX_LIVES;
 
-}
-
-void Client::showLobbies(){
-    std::string s(" ==== Available rooms: === \n");
-    for(auto it = rooms.begin(); it != rooms.end(); ++it){
-        s.append(it->first);
-        s.append("\n");
-        
-    }
-    write(s.c_str(),s.length());
 }
 
 void Client::setPasswordSetterStatus(bool status){

@@ -38,7 +38,6 @@ public:
     void setOrder(int ord);
     void setAmihost(bool b);
     void setGamestate(int state);
-    void showLobbies();
     void setScore(int points);
     void setRemainingLives(int lives);
     std::string getRoomname();

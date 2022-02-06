@@ -72,6 +72,8 @@ public:
     void setNewHostAfterGame();
     
     void guess_letter(int clientFd, char letter);
+
+    void endRound();
     
     std::string roundResults();
     
